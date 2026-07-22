@@ -359,12 +359,14 @@ export default function NotificationCategoryPage() {
                           .showNotifications
                       }
                       checked={
-                        "showReactionNotifications" in
-                        currentCategory
-                          ? currentCategory
-                              .showReactionNotifications
-                          : false
-                      }
+  "showReactionNotifications" in
+  currentCategory
+    ? Boolean(
+        currentCategory
+          .showReactionNotifications
+      )
+    : false
+}
                       onChange={(event) =>
                         void updateCategory({
                           showReactionNotifications:
