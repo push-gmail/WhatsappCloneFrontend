@@ -19,6 +19,7 @@ export type Profile = {
 export type PublicUser = {
   userId: string;
   profileId?: string;
+
   email: string;
   name: string;
   profilePhoto: string;
@@ -352,4 +353,63 @@ export type UserPresence = {
 
 export type UserPresenceResponse = {
   presence: UserPresence;
+};
+
+/* =====================================================
+   CONTACT TYPES
+===================================================== */
+
+export type SavedContact = {
+  contactId: string;
+
+  ownerUserId: string;
+  contactUserId: string;
+  contactProfileId: string;
+
+  customName: string;
+  displayName: string;
+
+  profilePhoto: string;
+  about: string;
+  email: string;
+  phoneNumber: string;
+
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ContactDetails = {
+  contactId: string | null;
+
+  ownerUserId: string;
+  contactUserId: string;
+  contactProfileId: string;
+
+  customName: string;
+  displayName: string;
+
+  isSavedContact: boolean;
+
+  createdAt: string | null;
+  updatedAt: string | null;
+
+  user: {
+    userId: string;
+    email: string;
+    userName: string;
+    phoneNumber: string;
+  };
+
+  profile: {
+    profileId: string;
+    userId: string;
+    profilePhoto: string;
+    name: string;
+    about: string;
+    phoneNumber: string;
+  };
+};
+
+export type ContactDetailsResponse = {
+  contact: ContactDetails;
 };
