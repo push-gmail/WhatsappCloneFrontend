@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
 import toast from "react-hot-toast";
 
 import backendApi, {
@@ -63,20 +64,31 @@ type ProviderProps = {
 export function ChatSettingsProvider({
   children,
 }: ProviderProps) {
-  const [chatSettings, setChatSettings] =
-    useState<ChatSettings | null>(null);
+  const [
+    chatSettings,
+    setChatSettings,
+  ] = useState<ChatSettings | null>(
+    null
+  );
 
+  /*
+   * Automatic chat-settings fetch disabled hai,
+   * isliye initial loading false rahega.
+   */
   const [loading, setLoading] =
-    useState(true);
+    useState(false);
 
-  const [systemTheme, setSystemTheme] =
-    useState<"light" | "dark">(() =>
+  const [
+    systemTheme,
+    setSystemTheme,
+  ] = useState<"light" | "dark">(
+    () =>
       window.matchMedia(
         "(prefers-color-scheme: dark)"
       ).matches
         ? "dark"
         : "light"
-    );
+  );
 
   const resolvedTheme =
     useMemo<"light" | "dark">(() => {
@@ -84,23 +96,38 @@ export function ChatSettingsProvider({
         return systemTheme;
       }
 
-      if (chatSettings.theme === "system") {
+      if (
+        chatSettings.theme === "system"
+      ) {
         return systemTheme;
       }
 
       return chatSettings.theme;
-    }, [chatSettings, systemTheme]);
+    }, [
+      chatSettings,
+      systemTheme,
+    ]);
 
+  /*
+   * Ye useEffect sirf system light/dark
+   * theme ko listen karta hai.
+   *
+   * Iska /user/chat-settings API se
+   * koi relation nahi hai.
+   */
   useEffect(() => {
-    const mediaQuery = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    );
+    const mediaQuery =
+      window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      );
 
     const handleChange = (
       event: MediaQueryListEvent
     ) => {
       setSystemTheme(
-        event.matches ? "dark" : "light"
+        event.matches
+          ? "dark"
+          : "light"
       );
     };
 
@@ -117,6 +144,11 @@ export function ChatSettingsProvider({
     };
   }, []);
 
+  /*
+   * Function available rahega.
+   * Lekin provider/component mount hote hi
+   * automatically call nahi hoga.
+   */
   const refreshChatSettings =
     useCallback(async () => {
       try {
@@ -139,9 +171,18 @@ export function ChatSettingsProvider({
       }
     }, []);
 
-  useEffect(() => {
-    void refreshChatSettings();
-  }, [refreshChatSettings]);
+  /*
+   * TEMPORARILY DISABLED:
+   *
+   * Login ya Create Account ke baad
+   * ChatSettingsProvider mount hoga,
+   * lekin /user/chat-settings API
+   * automatically call nahi hogi.
+   */
+
+  // useEffect(() => {
+  //   void refreshChatSettings();
+  // }, [refreshChatSettings]);
 
   const saveTheme = async (
     theme: ChatTheme
@@ -154,7 +195,9 @@ export function ChatSettingsProvider({
         }
       );
 
-    setChatSettings(data.chatSettings);
+    setChatSettings(
+      data.chatSettings
+    );
   };
 
   const saveWallpaper = async (
@@ -166,47 +209,59 @@ export function ChatSettingsProvider({
         wallpaper
       );
 
-    setChatSettings(data.chatSettings);
+    setChatSettings(
+      data.chatSettings
+    );
   };
 
-  const saveMediaUploadQuality = async (
-    quality: MediaUploadQuality
-  ) => {
-    const { data } =
-      await backendApi.patch(
-        "/user/chat-settings/media-upload-quality",
-        {
-          quality,
-        }
+  const saveMediaUploadQuality =
+    async (
+      quality: MediaUploadQuality
+    ) => {
+      const { data } =
+        await backendApi.patch(
+          "/user/chat-settings/media-upload-quality",
+          {
+            quality,
+          }
+        );
+
+      setChatSettings(
+        data.chatSettings
       );
+    };
 
-    setChatSettings(data.chatSettings);
-  };
+  const saveMediaAutoDownload =
+    async (
+      settings: MediaAutoDownload
+    ) => {
+      const { data } =
+        await backendApi.patch(
+          "/user/chat-settings/media-auto-download",
+          settings
+        );
 
-  const saveMediaAutoDownload = async (
-    settings: MediaAutoDownload
-  ) => {
-    const { data } =
-      await backendApi.patch(
-        "/user/chat-settings/media-auto-download",
-        settings
+      setChatSettings(
+        data.chatSettings
       );
+    };
 
-    setChatSettings(data.chatSettings);
-  };
-
-  const saveBehaviour = async (payload: {
-    spellCheckEnabled?: boolean;
-    replaceTextWithEmoji?: boolean;
-    enterIsSend?: boolean;
-  }) => {
+  const saveBehaviour = async (
+    payload: {
+      spellCheckEnabled?: boolean;
+      replaceTextWithEmoji?: boolean;
+      enterIsSend?: boolean;
+    }
+  ) => {
     const { data } =
       await backendApi.patch(
         "/user/chat-settings/behaviour",
         payload
       );
 
-    setChatSettings(data.chatSettings);
+    setChatSettings(
+      data.chatSettings
+    );
   };
 
   return (
@@ -229,9 +284,10 @@ export function ChatSettingsProvider({
 }
 
 export function useChatSettings() {
-  const context = useContext(
-    ChatSettingsContext
-  );
+  const context =
+    useContext(
+      ChatSettingsContext
+    );
 
   if (!context) {
     throw new Error(

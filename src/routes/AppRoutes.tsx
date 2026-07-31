@@ -6,7 +6,14 @@ import {
 
 import WelcomePage from "../pages/auth/WelcomePage";
 import EmailAuthPage from "../pages/auth/EmailAuthPage";
-import OtpPage from "../pages/auth/OtpPage";
+import PasswordAuthPage from "../pages/auth/PasswordAuthPage";
+
+/*
+ * OTP page reference ke liye project me rahega.
+ * Route temporarily inactive hai.
+ */
+// import OtpPage from "../pages/auth/OtpPage";
+
 import TwoStepPage from "../pages/auth/TwoStepPage";
 
 import RequireUser from "./RequireUser";
@@ -55,9 +62,20 @@ export default function AppRoutes() {
       />
 
       <Route
+        path="/auth/password"
+        element={<PasswordAuthPage />}
+      />
+
+      {/*
+       * OTP route temporarily inactive.
+       * Component delete nahi kiya gaya.
+       */}
+      {/*
+      <Route
         path="/auth/otp"
         element={<OtpPage />}
       />
+      */}
 
       <Route
         path="/auth/two-step"
@@ -125,7 +143,9 @@ export default function AppRoutes() {
 
           <Route
             path="account/two-step"
-            element={<TwoStepSettingsPage />}
+            element={
+              <TwoStepSettingsPage />
+            }
           />
 
           <Route
@@ -140,7 +160,9 @@ export default function AppRoutes() {
 
           <Route
             path="account/delete"
-            element={<DeleteAccountPage />}
+            element={
+              <DeleteAccountPage />
+            }
           />
 
           <Route
@@ -150,7 +172,9 @@ export default function AppRoutes() {
 
           <Route
             path="privacy/default-message-timer"
-            element={<DefaultMessageTimerPage />}
+            element={
+              <DefaultMessageTimerPage />
+            }
           />
 
           <Route
@@ -170,12 +194,16 @@ export default function AppRoutes() {
 
           <Route
             path="chat-settings/media-upload-quality"
-            element={<MediaUploadQualityPage />}
+            element={
+              <MediaUploadQualityPage />
+            }
           />
 
           <Route
             path="chat-settings/media-auto-download"
-            element={<MediaAutoDownloadPage />}
+            element={
+              <MediaAutoDownloadPage />
+            }
           />
 
           <Route

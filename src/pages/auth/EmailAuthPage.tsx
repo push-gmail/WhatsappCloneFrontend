@@ -15,8 +15,16 @@ import backendApi, {
   getErrorMessage,
 } from "../../api/backendApi";
 
+type CheckEmailResponse = {
+  message: string;
+  email: string;
+  isExistingUser: boolean;
+};
+
 export default function EmailAuthPage() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] =
+    useState("");
+
   const [loading, setLoading] =
     useState(false);
 
@@ -34,6 +42,7 @@ export default function EmailAuthPage() {
       );
 
       toast.dismiss();
+
       toast.success(
         "Logged out successfully"
       );
@@ -45,9 +54,12 @@ export default function EmailAuthPage() {
   ) => {
     event.preventDefault();
 
+    const normalizedEmail =
+      email.trim().toLowerCase();
+
     if (
       !/^\S+@\S+\.\S+$/.test(
-        email.trim()
+        normalizedEmail
       )
     ) {
       toast.error(
@@ -61,20 +73,23 @@ export default function EmailAuthPage() {
       setLoading(true);
 
       const { data } =
-        await backendApi.post(
-          "/auth/request-otp",
+        await backendApi.post<CheckEmailResponse>(
+          "/auth/check-email",
           {
-            email,
+            email: normalizedEmail,
           }
         );
 
-      toast.success(data.message);
-
-      navigate("/auth/otp", {
-        state: {
-          email: data.email,
-        },
-      });
+      navigate(
+        "/auth/password",
+        {
+          state: {
+            email: data.email,
+            isExistingUser:
+              data.isExistingUser,
+          },
+        }
+      );
     } catch (error) {
       toast.error(
         getErrorMessage(error)
@@ -95,12 +110,12 @@ export default function EmailAuthPage() {
         </div>
 
         <h1>
-          Verify your email address
+          Enter your email address
         </h1>
 
         <p>
-          We will send an email message to
-          verify your email address.
+          Enter your email to login or
+          create a new account.
         </p>
 
         <label>
@@ -108,11 +123,15 @@ export default function EmailAuthPage() {
         </label>
 
         <input
+          type="email"
           value={email}
           onChange={(event) =>
-            setEmail(event.target.value)
+            setEmail(
+              event.target.value
+            )
           }
           placeholder="name@example.com"
+          autoComplete="email"
           autoFocus
         />
 
@@ -121,7 +140,7 @@ export default function EmailAuthPage() {
           disabled={loading}
         >
           {loading
-            ? "SENDING..."
+            ? "CHECKING..."
             : "NEXT"}
         </button>
       </form>

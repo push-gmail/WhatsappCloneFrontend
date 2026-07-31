@@ -1,17 +1,29 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
+
 import {
   ArrowLeft,
   ChevronRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+
+import {
+  useNavigate,
+} from "react-router-dom";
+
 import toast from "react-hot-toast";
 
 import EmptyPane from "../../components/layout/EmptyPane";
-import { useChatSettings } from "../../store/ChatSettingsContext";
-import type { ChatTheme } from "../../types";
+
+import {
+  useChatSettings,
+} from "../../store/ChatSettingsContext";
+
+import type {
+  ChatTheme,
+} from "../../types";
 
 const getThemeLabel = (
   theme?: ChatTheme
@@ -34,17 +46,52 @@ export default function ChatsSettingsPage() {
     chatSettings,
     loading,
     resolvedTheme,
+    refreshChatSettings,
     saveTheme,
     saveBehaviour,
   } = useChatSettings();
+
+  /*
+   * Chat settings page open hone par
+   * API sirf ek baar call karne ke liye.
+   */
+  const requestStartedRef =
+    useRef(false);
 
   const [
     themeModalOpen,
     setThemeModalOpen,
   ] = useState(false);
 
-  const [draftTheme, setDraftTheme] =
-    useState<ChatTheme>("system");
+  const [
+    draftTheme,
+    setDraftTheme,
+  ] = useState<ChatTheme>(
+    "system"
+  );
+
+  /*
+   * Login/Create Account ke baad call nahi hogi.
+   *
+   * Sirf jab user manually
+   * /user/chat-settings page open karega,
+   * tab chat-settings fetch hogi.
+   */
+  useEffect(() => {
+    if (
+      chatSettings ||
+      requestStartedRef.current
+    ) {
+      return;
+    }
+
+    requestStartedRef.current = true;
+
+    void refreshChatSettings();
+  }, [
+    chatSettings,
+    refreshChatSettings,
+  ]);
 
   useEffect(() => {
     if (chatSettings?.theme) {
@@ -56,7 +103,8 @@ export default function ChatsSettingsPage() {
 
   const openThemeModal = () => {
     setDraftTheme(
-      chatSettings?.theme || "system"
+      chatSettings?.theme ||
+        "system"
     );
 
     setThemeModalOpen(true);
@@ -64,7 +112,8 @@ export default function ChatsSettingsPage() {
 
   const closeThemeModal = () => {
     setDraftTheme(
-      chatSettings?.theme || "system"
+      chatSettings?.theme ||
+        "system"
     );
 
     setThemeModalOpen(false);
@@ -72,7 +121,9 @@ export default function ChatsSettingsPage() {
 
   const confirmTheme = async () => {
     try {
-      await saveTheme(draftTheme);
+      await saveTheme(
+        draftTheme
+      );
 
       setThemeModalOpen(false);
 
@@ -128,7 +179,8 @@ export default function ChatsSettingsPage() {
           <h1>Chats</h1>
         </header>
 
-        {loading || !chatSettings ? (
+        {loading ||
+        !chatSettings ? (
           <div className="wa-chat-settings-loading">
             Loading chat settings...
           </div>
@@ -141,7 +193,9 @@ export default function ChatsSettingsPage() {
             <button
               type="button"
               className="wa-chat-setting-row"
-              onClick={openThemeModal}
+              onClick={
+                openThemeModal
+              }
             >
               <div>
                 <strong>
@@ -195,7 +249,8 @@ export default function ChatsSettingsPage() {
                 </strong>
 
                 <span>
-                  {chatSettings.mediaUploadQuality ===
+                  {chatSettings
+                    .mediaUploadQuality ===
                   "hd"
                     ? "HD quality"
                     : "Standard quality"}
@@ -242,10 +297,13 @@ export default function ChatsSettingsPage() {
                     chatSettings
                       .spellCheckEnabled
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event
+                  ) =>
                     void updateBehaviour(
                       "spellCheckEnabled",
-                      event.target.checked
+                      event.target
+                        .checked
                     )
                   }
                 />
@@ -257,7 +315,8 @@ export default function ChatsSettingsPage() {
             <div className="wa-chat-toggle-row">
               <div>
                 <strong>
-                  Replace text with emoji
+                  Replace text with
+                  emoji
                 </strong>
 
                 <span>
@@ -273,10 +332,13 @@ export default function ChatsSettingsPage() {
                     chatSettings
                       .replaceTextWithEmoji
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event
+                  ) =>
                     void updateBehaviour(
                       "replaceTextWithEmoji",
-                      event.target.checked
+                      event.target
+                        .checked
                     )
                   }
                 />
@@ -292,8 +354,8 @@ export default function ChatsSettingsPage() {
                 </strong>
 
                 <span>
-                  Enter key will send your
-                  message
+                  Enter key will send
+                  your message
                 </span>
               </div>
 
@@ -301,12 +363,16 @@ export default function ChatsSettingsPage() {
                 <input
                   type="checkbox"
                   checked={
-                    chatSettings.enterIsSend
+                    chatSettings
+                      .enterIsSend
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event
+                  ) =>
                     void updateBehaviour(
                       "enterIsSend",
-                      event.target.checked
+                      event.target
+                        .checked
                     )
                   }
                 />
@@ -356,7 +422,8 @@ export default function ChatsSettingsPage() {
             ).map(
               ([value, label]) => {
                 const selected =
-                  draftTheme === value;
+                  draftTheme ===
+                  value;
 
                 return (
                   <button
