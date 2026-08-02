@@ -81,7 +81,7 @@ export default function EmailAuthPage() {
         );
 
       navigate(
-        "/auth/password",
+        "/auth/otp",
         {
           state: {
             email: data.email,

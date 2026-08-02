@@ -47,6 +47,7 @@ import NotificationCategoryPage from "../pages/user/NotificationCategoryPage";
 import {
   ChatSettingsProvider,
 } from "../store/ChatSettingsContext";
+import OtpPage from "../pages/auth/OtpPage";
 
 export default function AppRoutes() {
   return (
@@ -70,12 +71,12 @@ export default function AppRoutes() {
        * OTP route temporarily inactive.
        * Component delete nahi kiya gaya.
        */}
-      {/*
+      
       <Route
         path="/auth/otp"
         element={<OtpPage />}
       />
-      */}
+      
 
       <Route
         path="/auth/two-step"
