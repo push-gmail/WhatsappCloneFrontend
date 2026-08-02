@@ -871,7 +871,7 @@ export default function ChatsPage() {
       }
 
       try {
-        const { data } =
+        const { data: searchData } =
           await backendApi.get(
             "/user/chat/search",
             {
@@ -885,7 +885,7 @@ export default function ChatsPage() {
         const foundUser:
           | PublicUser
           | undefined =
-          data?.user;
+          searchData?.user;
 
         if (
           !foundUser?.userId
@@ -897,14 +897,25 @@ export default function ChatsPage() {
           return;
         }
 
-        const response =
+        const {
+          data:
+            conversationData,
+        } =
           await backendApi.post(
             `/user/chat/conversations/with/${foundUser.userId}`
           );
 
+        const openedConversation =
+          conversationData
+            ?.conversation;
+
         const openedConversationId =
-          response.data
-            ?.conversation?._id;
+          String(
+            openedConversation?._id ||
+              conversationData
+                ?.conversationId ||
+              ""
+          ).trim();
 
         if (
           !openedConversationId
@@ -916,12 +927,64 @@ export default function ChatsPage() {
           return;
         }
 
-        await loadConversations();
+        /*
+         * Search ke baad conversation ko
+         * immediately local state me add/update.
+         *
+         * Isse navigate hote hi selected chat
+         * mil jayega aur chat window open hogi.
+         */
+        if (
+          openedConversation?._id
+        ) {
+          setConversations(
+            (
+              currentConversations
+            ) => {
+              const alreadyExists =
+                currentConversations.some(
+                  (
+                    conversation
+                  ) =>
+                    conversation._id ===
+                    openedConversationId
+                );
+
+              if (alreadyExists) {
+                return currentConversations.map(
+                  (
+                    conversation
+                  ) =>
+                    conversation._id ===
+                    openedConversationId
+                      ? {
+                          ...conversation,
+                          ...openedConversation,
+                        }
+                      : conversation
+                );
+              }
+
+              return [
+                openedConversation,
+                ...currentConversations,
+              ];
+            }
+          );
+        }
 
         setSearch("");
 
         navigate(
           `/user/chats/${openedConversationId}`
+        );
+
+        /*
+         * Latest conversation list background
+         * me refresh hogi.
+         */
+        void loadConversations().catch(
+          () => undefined
         );
       } catch (error) {
         toast.error(

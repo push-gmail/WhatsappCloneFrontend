@@ -5,7 +5,6 @@ import {
 
 import {
   Outlet,
-  useLocation,
 } from "react-router-dom";
 
 import backendApi from "../api/backendApi";
@@ -20,7 +19,8 @@ export type ProtectedSessionStatus =
   | "invalid";
 
 export type ProtectedRouteOutletContext = {
-  sessionStatus: ProtectedSessionStatus;
+  sessionStatus:
+    ProtectedSessionStatus;
 };
 
 type CheckSessionResponse = {
@@ -32,8 +32,6 @@ type CheckSessionResponse = {
 };
 
 export default function RequireUser() {
-  const location = useLocation();
-
   const {
     userId,
     sessionId,
@@ -42,54 +40,78 @@ export default function RequireUser() {
   const [
     sessionStatus,
     setSessionStatus,
-  ] = useState<ProtectedSessionStatus>(
-    "checking"
-  );
+  ] =
+    useState<ProtectedSessionStatus>(
+      "checking"
+    );
 
   useEffect(() => {
     let active = true;
 
-    const validateSession = async () => {
-      setSessionStatus("checking");
+    const validateSession =
+      async () => {
+        /*
+         * Browser storage me login details
+         * available nahi hain.
+         */
+        if (
+          !userId ||
+          !sessionId
+        ) {
+          if (active) {
+            setSessionStatus(
+              "invalid"
+            );
+          }
 
-      /*
-       * Browser tab ke paas login details hi nahi hain.
-       */
-      if (!userId || !sessionId) {
-        if (active) {
-          setSessionStatus("invalid");
-        }
-
-        return;
-      }
-
-      try {
-        const { data } =
-          await backendApi.get<CheckSessionResponse>(
-            "/auth/check-session"
-          );
-
-        if (!active) {
           return;
         }
 
-        const responseSessionId = String(
-          data?.sessionId || ""
-        );
-
-        const isValid =
-          data?.authenticated === true &&
-          responseSessionId === sessionId;
-
+        /*
+         * Session sirf userId/sessionId
+         * change hone par check hogi.
+         *
+         * Protected route change par
+         * dobara check nahi hogi.
+         */
         setSessionStatus(
-          isValid ? "valid" : "invalid"
+          "checking"
         );
-      } catch {
-        if (active) {
-          setSessionStatus("invalid");
+
+        try {
+          const { data } =
+            await backendApi.get<CheckSessionResponse>(
+              "/auth/check-session"
+            );
+
+          if (!active) {
+            return;
+          }
+
+          const responseSessionId =
+            String(
+              data?.sessionId || ""
+            );
+
+          const isValid =
+            data?.authenticated ===
+              true &&
+            responseSessionId ===
+              sessionId;
+
+          setSessionStatus(
+            isValid
+              ? "valid"
+              : "invalid"
+          );
+        } catch {
+          if (active) {
+            setSessionStatus(
+              "invalid"
+            );
+          }
         }
-      }
-    };
+      };
 
     void validateSession();
 
@@ -97,34 +119,40 @@ export default function RequireUser() {
       active = false;
     };
   }, [
-    location.pathname,
     userId,
     sessionId,
   ]);
 
   /*
-   * Route hit hone par session-check API complete hone se
-   * pehle protected child component render nahi hoga.
+   * Ye loader sirf first protected-page
+   * load ya login ke baad ek baar dikhega.
+   *
+   * Chats, status, settings aur profile
+   * routes change karne par nahi dikhega.
    */
-  if (sessionStatus === "checking") {
+  if (
+    sessionStatus ===
+    "checking"
+  ) {
     return (
-      <main className="loading">
-        <span className="spinner" />
-
-        <span>Checking session...</span>
+      <main
+        className="loading"
+        aria-label="Loading your account"
+      >
+        <span
+          className="spinner"
+          aria-hidden="true"
+        />
       </main>
     );
   }
 
   /*
-   * Valid aur invalid dono condition mein component render.
-   *
-   * Invalid condition mein backend protected APIs 401 return
-   * karengi aur actual protected data show nahi hoga.
+   * Existing valid/invalid rendering
+   * behavior unchanged hai.
    */
   return (
     <Outlet
-      key={`${location.pathname}-${sessionStatus}-${sessionId}`}
       context={{
         sessionStatus,
       }}
