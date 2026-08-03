@@ -3,7 +3,9 @@ import {
   useState,
 } from "react";
 
-import { Mail } from "lucide-react";
+import {
+  Mail,
+} from "lucide-react";
 
 import {
   useNavigate,
@@ -15,10 +17,13 @@ import backendApi, {
   getErrorMessage,
 } from "../../api/backendApi";
 
-type CheckEmailResponse = {
+type RequestOtpResponse = {
   message: string;
   email: string;
   isExistingUser: boolean;
+  purpose:
+    | "signup"
+    | "login";
 };
 
 export default function EmailAuthPage() {
@@ -28,7 +33,8 @@ export default function EmailAuthPage() {
   const [loading, setLoading] =
     useState(false);
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   useEffect(() => {
     const logoutSuccess =
@@ -36,7 +42,9 @@ export default function EmailAuthPage() {
         "whatsapp_clone_logout_success"
       );
 
-    if (logoutSuccess === "true") {
+    if (
+      logoutSuccess === "true"
+    ) {
       sessionStorage.removeItem(
         "whatsapp_clone_logout_success"
       );
@@ -54,8 +62,14 @@ export default function EmailAuthPage() {
   ) => {
     event.preventDefault();
 
+    if (loading) {
+      return;
+    }
+
     const normalizedEmail =
-      email.trim().toLowerCase();
+      email
+        .trim()
+        .toLowerCase();
 
     if (
       !/^\S+@\S+\.\S+$/.test(
@@ -72,21 +86,49 @@ export default function EmailAuthPage() {
     try {
       setLoading(true);
 
+      /*
+       * OTP email send karne wali API.
+       *
+       * Existing user:
+       * purpose = login
+       *
+       * New user:
+       * purpose = signup
+       */
       const { data } =
-        await backendApi.post<CheckEmailResponse>(
-          "/auth/check-email",
+        await backendApi.post<RequestOtpResponse>(
+          "/auth/request-otp",
           {
-            email: normalizedEmail,
+            email:
+              normalizedEmail,
           }
         );
+
+      if (!data?.email) {
+        toast.error(
+          "OTP could not be sent"
+        );
+
+        return;
+      }
+
+      toast.success(
+        data.message ||
+          "OTP sent successfully"
+      );
 
       navigate(
         "/auth/otp",
         {
           state: {
-            email: data.email,
+            email:
+              data.email,
+
             isExistingUser:
               data.isExistingUser,
+
+            purpose:
+              data.purpose,
           },
         }
       );
@@ -114,8 +156,8 @@ export default function EmailAuthPage() {
         </h1>
 
         <p>
-          Enter your email to login or
-          create a new account.
+          Enter your email to login
+          or create a new account.
         </p>
 
         <label>
@@ -133,14 +175,16 @@ export default function EmailAuthPage() {
           placeholder="name@example.com"
           autoComplete="email"
           autoFocus
+          disabled={loading}
         />
 
         <button
+          type="submit"
           className="primary-btn"
           disabled={loading}
         >
           {loading
-            ? "CHECKING..."
+            ? "SENDING OTP..."
             : "NEXT"}
         </button>
       </form>
