@@ -33,7 +33,7 @@ npm run dev
 Use this in `.env`:
 
 ```env
-VITE_BACKEND_URL=http://localhost:5000
+VITE_BACKEND_URL=https://server.aggr.co.in
 ```
 
 The backend must be running on port 5000. New/existing email OTP, optional two-step PIN, profile, account, user email search, conversations and Socket.IO chat are integrated with the backend routes.
