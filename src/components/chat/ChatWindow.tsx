@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -243,14 +244,17 @@ export default function ChatWindow({
         }, TYPING_STOP_DELAY_MS);
     };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     bottomRef.current?.scrollIntoView(
       {
-        behavior: "smooth",
+        behavior: "auto",
         block: "end",
       }
     );
-  }, [messages]);
+  }, [
+    conversation._id,
+    messages,
+  ]);
 
   useEffect(() => {
     /*
