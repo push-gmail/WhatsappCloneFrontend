@@ -180,7 +180,7 @@ export default function ChatWindow({
   const [text, setText] =
     useState("");
 
-  const bottomRef =
+  const messageAreaRef =
     useRef<HTMLDivElement | null>(
       null
     );
@@ -245,12 +245,15 @@ export default function ChatWindow({
     };
 
   useLayoutEffect(() => {
-    bottomRef.current?.scrollIntoView(
-      {
-        behavior: "auto",
-        block: "end",
-      }
-    );
+    const messageArea =
+      messageAreaRef.current;
+
+    if (!messageArea) {
+      return;
+    }
+
+    messageArea.scrollTop =
+      messageArea.scrollHeight;
   }, [
     conversation._id,
     messages,
@@ -552,6 +555,7 @@ export default function ChatWindow({
       </header>
 
       <div
+        ref={messageAreaRef}
         className={`message-area ${
           wallpaper?.doodlesEnabled
             ? "wa-active-wallpaper-doodles"
@@ -627,7 +631,6 @@ export default function ChatWindow({
           }
         )}
 
-        <div ref={bottomRef} />
       </div>
 
       <form
