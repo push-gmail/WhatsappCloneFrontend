@@ -19,7 +19,6 @@ export type Profile = {
 export type PublicUser = {
   userId: string;
   profileId?: string;
-
   email: string;
   name: string;
   profilePhoto: string;
@@ -46,7 +45,24 @@ export type MessageType =
   | "image"
   | "video"
   | "document"
-  | "audio";
+  | "audio"
+  | "location"
+  | "contact";
+
+export type SharedLocation = {
+  latitude: number;
+  longitude: number;
+  address?: string;
+};
+
+export type SharedContact = {
+  userId?: string | null;
+  profileId?: string | null;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  profilePhoto?: string;
+};
 
 export type Message = {
   _id: string;
@@ -72,6 +88,8 @@ export type Message = {
   messageType: MessageType;
   text: string;
   fileUrl?: string;
+  location?: SharedLocation | null;
+  contact?: SharedContact | null;
 
   status: MessageStatus;
 
@@ -209,7 +227,7 @@ export type ChatSettings = {
 export type BrowserNotificationPermission =
   | "default"
   | "granted"
-  | "denied"   
+  | "denied"
   | "unsupported";
 
 export type NotificationCategorySettings = {
@@ -225,7 +243,6 @@ export type StatusNotificationSettings = {
 
 export type NotificationSettings = {
   _id: string;
-
   userId: string;
   profileId: string;
   privacyId: string;
@@ -329,24 +346,15 @@ export type StatusViewersResponse = {
   viewers: StatusViewerUser[];
 };
 
-
 /* =====================================================
    ONLINE / LAST SEEN TYPES
 ===================================================== */
 
 export type UserPresence = {
   userId: string;
-
   isOnline: boolean;
-
-  onlineAt:
-    | string
-    | null;
-
-  lastSeenAt:
-    | string
-    | null;
-
+  onlineAt: string | null;
+  lastSeenAt: string | null;
   canSeeOnline: boolean;
   canSeeLastSeen: boolean;
 };
@@ -361,35 +369,27 @@ export type UserPresenceResponse = {
 
 export type SavedContact = {
   contactId: string;
-
   ownerUserId: string;
   contactUserId: string;
   contactProfileId: string;
-
   customName: string;
   displayName: string;
-
   profilePhoto: string;
   about: string;
   email: string;
   phoneNumber: string;
-
   createdAt?: string;
   updatedAt?: string;
 };
 
 export type ContactDetails = {
   contactId: string | null;
-
   ownerUserId: string;
   contactUserId: string;
   contactProfileId: string;
-
   customName: string;
   displayName: string;
-
   isSavedContact: boolean;
-
   createdAt: string | null;
   updatedAt: string | null;
 

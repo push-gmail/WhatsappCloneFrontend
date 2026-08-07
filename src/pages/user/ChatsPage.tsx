@@ -35,6 +35,8 @@ import type {
   UserPresence,
   UserPresenceResponse,
   SavedContact,
+  SharedContact,
+  SharedLocation,
 } from "../../types";
 
 import {
@@ -133,6 +135,11 @@ export default function ChatsPage() {
   ] = useState<
     PublicUser | null
   >(null);
+
+  const [
+    recentEmojis,
+    setRecentEmojis,
+  ] = useState<string[]>([]);
 
   const { conversationId } =
     useParams<{
@@ -289,12 +296,34 @@ export default function ChatsPage() {
       );
     }, []);
 
+  const loadRecentEmojis =
+    useCallback(async () => {
+      try {
+        const { data } =
+          await backendApi.get(
+            "/user/chat/emojis/recent"
+          );
+
+        setRecentEmojis(
+          Array.isArray(data?.emojis)
+            ? data.emojis
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Recent emojis load failed:",
+          getErrorMessage(error)
+        );
+      }
+    }, []);
+
   useEffect(() => {
     const run = async () => {
       try {
         await Promise.all([
           loadConversations(),
           loadSavedContacts(),
+          loadRecentEmojis(),
         ]);
       } catch (error) {
         toast.error(
@@ -307,6 +336,7 @@ export default function ChatsPage() {
   }, [
     loadConversations,
     loadSavedContacts,
+    loadRecentEmojis,
   ]);
 
   useEffect(() => {
@@ -509,12 +539,13 @@ export default function ChatsPage() {
         setTypingUsersByConversation(
           (currentTypingMap) => {
             const nextTypingMap =
-              new Map(
-                currentTypingMap
-              );
+              new Map<
+                string,
+                Set<string>
+              >(currentTypingMap);
 
             const currentTypingUsers =
-              new Set(
+              new Set<string>(
                 nextTypingMap.get(
                   normalizedConversationId
                 ) || []
@@ -1025,64 +1056,9 @@ export default function ChatsPage() {
     );
   };
 
-  const send = (
-    messageText: string
-  ) => {
-    const cleanText =
-      messageText.trim();
-
-    if (!cleanText) {
-      return;
-    }
-
-    if (
-      !socket ||
-      !conversationId
-    ) {
-      toast.error(
-        "Chat server is not connected"
-      );
-
-      return;
-    }
-
-    /*
-     * Message send se pehle typing stop.
-     */
-    socket.emit(
-      "typing_stop",
-      {
-        conversationId,
-      }
-    );
-
-    socket.emit(
-      "send_message",
-      {
-        conversationId,
-        messageType:
-          "text",
-        text: cleanText,
-      },
-      (
-        response:
-          SocketAcknowledgement
-      ) => {
-        if (
-          !response?.ok ||
-          !response.message
-        ) {
-          toast.error(
-            response?.error ||
-              "Message could not be sent"
-          );
-
-          return;
-        }
-
-        const savedMessage =
-          response.message;
-
+  const addSavedMessage =
+    useCallback(
+      (savedMessage: Message) => {
         setMessages(
           (currentMessages) => {
             const exists =
@@ -1112,8 +1088,190 @@ export default function ChatsPage() {
         void loadConversations().catch(
           () => undefined
         );
-      }
+      },
+      [loadConversations]
     );
+
+  const sendSocketMessage =
+    useCallback(
+      (payload: Record<string, unknown>) => {
+        return new Promise<void>((resolve, reject) => {
+          if (
+            !socket ||
+            !conversationId
+          ) {
+            const error = new Error(
+              "Chat server is not connected"
+            );
+
+            toast.error(error.message);
+            reject(error);
+            return;
+          }
+
+          socket.emit(
+            "typing_stop",
+            {
+              conversationId,
+            }
+          );
+
+          socket.emit(
+            "send_message",
+            {
+              conversationId,
+              ...payload,
+            },
+            (
+              response:
+                SocketAcknowledgement
+            ) => {
+              if (
+                !response?.ok ||
+                !response.message
+              ) {
+                const error = new Error(
+                  response?.error ||
+                    "Message could not be sent"
+                );
+
+                toast.error(error.message);
+                reject(error);
+                return;
+              }
+
+              addSavedMessage(
+                response.message
+              );
+
+              resolve();
+            }
+          );
+        });
+      },
+      [
+        socket,
+        conversationId,
+        addSavedMessage,
+      ]
+    );
+
+  const send = (
+    messageText: string
+  ) => {
+    const cleanText =
+      messageText.trim();
+
+    if (!cleanText) {
+      return;
+    }
+
+    void sendSocketMessage({
+      messageType: "text",
+      text: cleanText,
+    }).catch(() => undefined);
+  };
+
+  const sendImage = async (
+    file: File,
+    caption: string
+  ) => {
+    if (!conversationId) {
+      toast.error(
+        "Conversation is not selected"
+      );
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("media", file);
+
+      const { data } =
+        await backendApi.post(
+          `/user/chat/conversations/${conversationId}/media`,
+          formData,
+          {
+            headers: {
+              "Content-Type":
+                "multipart/form-data",
+            },
+          }
+        );
+
+      const fileUrl = String(
+        data?.fileUrl || ""
+      ).trim();
+
+      if (!fileUrl) {
+        throw new Error(
+          "Uploaded image URL was not returned"
+        );
+      }
+
+      await sendSocketMessage({
+        messageType: "image",
+        text: caption.trim(),
+        fileUrl,
+      });
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error)
+      );
+      throw error;
+    }
+  };
+
+  const sendLocation = (
+    location: SharedLocation
+  ) => {
+    void sendSocketMessage({
+      messageType: "location",
+      location,
+    }).catch(() => undefined);
+  };
+
+  const sendContact = (
+    contact: SharedContact
+  ) => {
+    void sendSocketMessage({
+      messageType: "contact",
+      contact,
+    }).catch(() => undefined);
+  };
+
+  const recordEmojiUsage = (
+    emoji: string
+  ) => {
+    setRecentEmojis(
+      (currentEmojis) => [
+        emoji,
+        ...currentEmojis.filter(
+          (item) => item !== emoji
+        ),
+      ].slice(0, 32)
+    );
+
+    void backendApi
+      .post(
+        "/user/chat/emojis/use",
+        { emoji }
+      )
+      .then(({ data }) => {
+        if (
+          Array.isArray(data?.emojis)
+        ) {
+          setRecentEmojis(
+            data.emojis
+          );
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "Emoji usage save failed:",
+          getErrorMessage(error)
+        );
+      });
   };
 
   const handleContactSaved = (
@@ -1207,6 +1365,14 @@ export default function ChatsPage() {
             )
           }
           onSend={send}
+          onSendImage={sendImage}
+          onSendLocation={sendLocation}
+          onSendContact={sendContact}
+          onEmojiUsed={recordEmojiUsage}
+          recentEmojis={recentEmojis}
+          shareableContacts={[
+            ...savedContactsByUser.values(),
+          ]}
           onTypingStart={
             startTyping
           }

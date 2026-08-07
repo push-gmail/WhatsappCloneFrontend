@@ -14,6 +14,10 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  ContactRound,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
   MoreVertical,
   Paperclip,
   Phone,
@@ -21,6 +25,7 @@ import {
   Send,
   Smile,
   Video,
+  X,
 } from "lucide-react";
 
 import Avatar from "../common/Avatar";
@@ -28,6 +33,9 @@ import Avatar from "../common/Avatar";
 import type {
   Conversation,
   Message,
+  SavedContact,
+  SharedContact,
+  SharedLocation,
 } from "../../types";
 
 import {
@@ -38,6 +46,10 @@ import {
   useChatSettings,
 } from "../../store/ChatSettingsContext";
 
+import {
+  BACKEND_URL,
+} from "../../api/backendApi";
+
 type ChatWindowProps = {
   conversation: Conversation;
   messages: Message[];
@@ -47,6 +59,26 @@ type ChatWindowProps = {
     text: string
   ) => void;
 
+  onSendImage: (
+    file: File,
+    caption: string
+  ) => Promise<void>;
+
+  onSendLocation: (
+    location: SharedLocation
+  ) => void;
+
+  onSendContact: (
+    contact: SharedContact
+  ) => void;
+
+  onEmojiUsed: (
+    emoji: string
+  ) => void;
+
+  recentEmojis: string[];
+  shareableContacts: SavedContact[];
+
   onTypingStart:
     () => void;
 
@@ -54,7 +86,6 @@ type ChatWindowProps = {
     () => void;
 
   isTyping: boolean;
-
   online: boolean;
 
   lastSeenAt:
@@ -67,6 +98,45 @@ type ChatWindowProps = {
 
 const TYPING_STOP_DELAY_MS =
   1500;
+
+const EMOJI_GROUPS = [
+  {
+    label: "Smileys & people",
+    emojis: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+      "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
+      "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+      "🤪", "🤨", "🧐", "🤓", "😎", "🥳", "😏", "😒",
+      "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖",
+      "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡",
+      "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰",
+      "😥", "😓", "🤗", "🤔", "🫣", "🤭", "🫢", "🫡",
+      "🤫", "🫠", "🤥", "😶", "😐", "😑", "😬", "🙄",
+      "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤",
+      "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷",
+      "🤒", "🤕", "👍", "👎", "👌", "✌️", "🤞", "🤟",
+      "🤘", "🤙", "👏", "🙌", "🫶", "🙏", "💪", "👀",
+    ],
+  },
+  {
+    label: "Hearts & symbols",
+    emojis: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+      "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "💕", "💞", "💓", "💗",
+      "💖", "💘", "💝", "💟", "❣️", "💯", "🔥", "✨",
+      "⭐", "🌟", "💫", "⚡", "🎉", "🎊", "✅", "❌",
+    ],
+  },
+  {
+    label: "Food, travel & objects",
+    emojis: [
+      "☕", "🍵", "🍕", "🍔", "🍟", "🌮", "🍜", "🍰",
+      "🍫", "🍎", "🍓", "🥭", "🚗", "🚕", "🚌", "✈️",
+      "🚀", "🏠", "🏢", "🌍", "🌙", "☀️", "🌧️", "🎵",
+      "🎧", "📱", "💻", "⌚", "📷", "🎁", "💡", "📌",
+    ],
+  },
+];
 
 const replaceTextWithEmoji = (
   value: string
@@ -113,9 +183,7 @@ const formatLastSeen = (
   }
 
   const now = new Date();
-
-  const yesterday =
-    new Date(now);
+  const yesterday = new Date(now);
 
   yesterday.setDate(
     now.getDate() - 1
@@ -130,12 +198,7 @@ const formatLastSeen = (
       }
     );
 
-  if (
-    isSameDate(
-      date,
-      now
-    )
-  ) {
+  if (isSameDate(date, now)) {
     return `last seen today at ${time}`;
   }
 
@@ -165,11 +228,39 @@ const formatLastSeen = (
   return `last seen ${dateText} at ${time}`;
 };
 
+const resolveMediaUrl = (
+  fileUrl?: string
+) => {
+  const cleanUrl = String(
+    fileUrl || ""
+  ).trim();
+
+  if (!cleanUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(cleanUrl)) {
+    return cleanUrl;
+  }
+
+  return `${BACKEND_URL}${
+    cleanUrl.startsWith("/")
+      ? cleanUrl
+      : `/${cleanUrl}`
+  }`;
+};
+
 export default function ChatWindow({
   conversation,
   messages,
   onBack,
   onSend,
+  onSendImage,
+  onSendLocation,
+  onSendContact,
+  onEmojiUsed,
+  recentEmojis,
+  shareableContacts,
   onTypingStart,
   onTypingStop,
   isTyping,
@@ -180,8 +271,49 @@ export default function ChatWindow({
   const [text, setText] =
     useState("");
 
+  const [emojiOpen, setEmojiOpen] =
+    useState(false);
+
+  const [attachmentOpen, setAttachmentOpen] =
+    useState(false);
+
+  const [selectedImage, setSelectedImage] =
+    useState<File | null>(null);
+
+  const [selectedImagePreview, setSelectedImagePreview] =
+    useState("");
+
+  const [mediaCaption, setMediaCaption] =
+    useState("");
+
+  const [sendingImage, setSendingImage] =
+    useState(false);
+
+  const [locationModalOpen, setLocationModalOpen] =
+    useState(false);
+
+  const [locationLoading, setLocationLoading] =
+    useState(false);
+
+  const [pendingLocation, setPendingLocation] =
+    useState<SharedLocation | null>(null);
+
+  const [locationError, setLocationError] =
+    useState("");
+
+  const [contactModalOpen, setContactModalOpen] =
+    useState(false);
+
+  const [contactSearch, setContactSearch] =
+    useState("");
+
   const messageAreaRef =
     useRef<HTMLDivElement | null>(
+      null
+    );
+
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(
       null
     );
 
@@ -195,8 +327,7 @@ export default function ChatWindow({
   const localTypingRef =
     useRef(false);
 
-  const { userId } =
-    useAuth();
+  const { userId } = useAuth();
 
   const {
     chatSettings,
@@ -206,43 +337,84 @@ export default function ChatWindow({
   const wallpaper =
     chatSettings?.wallpaper;
 
-  const clearTypingTimer =
-    () => {
-      if (
+  const filteredContacts =
+    useMemo(() => {
+      const query =
+        contactSearch
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return shareableContacts;
+      }
+
+      return shareableContacts.filter(
+        (contact) =>
+          contact.displayName
+            .toLowerCase()
+            .includes(query) ||
+          contact.email
+            .toLowerCase()
+            .includes(query) ||
+          contact.phoneNumber
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [
+      contactSearch,
+      shareableContacts,
+    ]);
+
+  const clearTypingTimer = () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(
         typingTimeoutRef.current
-      ) {
-        clearTimeout(
-          typingTimeoutRef.current
-        );
-
-        typingTimeoutRef.current =
-          null;
-      }
-    };
-
-  const stopLocalTyping =
-    () => {
-      clearTypingTimer();
-
-      if (
-        localTypingRef.current
-      ) {
-        localTypingRef.current =
-          false;
-
-        onTypingStop();
-      }
-    };
-
-  const scheduleTypingStop =
-    () => {
-      clearTypingTimer();
+      );
 
       typingTimeoutRef.current =
-        setTimeout(() => {
-          stopLocalTyping();
-        }, TYPING_STOP_DELAY_MS);
-    };
+        null;
+    }
+  };
+
+  const stopLocalTyping = () => {
+    clearTypingTimer();
+
+    if (localTypingRef.current) {
+      localTypingRef.current = false;
+      onTypingStop();
+    }
+  };
+
+  const scheduleTypingStop = () => {
+    clearTypingTimer();
+
+    typingTimeoutRef.current =
+      setTimeout(() => {
+        stopLocalTyping();
+      }, TYPING_STOP_DELAY_MS);
+  };
+
+  const closeComposerPanels = () => {
+    setEmojiOpen(false);
+    setAttachmentOpen(false);
+  };
+
+  const closeImagePreview = () => {
+    setSelectedImage(null);
+    setMediaCaption("");
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(
+        selectedImagePreview
+      );
+    }
+
+    setSelectedImagePreview("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   useLayoutEffect(() => {
     const messageArea =
@@ -260,13 +432,14 @@ export default function ChatWindow({
   ]);
 
   useEffect(() => {
-    /*
-     * Conversation change par old input
-     * aur old typing state clear.
-     */
     stopLocalTyping();
-
     setText("");
+    closeComposerPanels();
+    setLocationModalOpen(false);
+    setContactModalOpen(false);
+    setPendingLocation(null);
+    setLocationError("");
+    closeImagePreview();
 
     return () => {
       stopLocalTyping();
@@ -276,8 +449,14 @@ export default function ChatWindow({
   useEffect(() => {
     return () => {
       clearTypingTimer();
+
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(
+          selectedImagePreview
+        );
+      }
     };
-  }, []);
+  }, [selectedImagePreview]);
 
   const messageAreaStyle =
     useMemo<CSSProperties>(() => {
@@ -320,29 +499,25 @@ export default function ChatWindow({
     return cleanText;
   };
 
-  const sendCurrentMessage =
-    () => {
-      const preparedText =
-        prepareMessageText(text);
+  const sendCurrentMessage = () => {
+    const preparedText =
+      prepareMessageText(text);
 
-      if (!preparedText) {
-        stopLocalTyping();
-
-        return;
-      }
-
+    if (!preparedText) {
       stopLocalTyping();
+      return;
+    }
 
-      onSend(preparedText);
-
-      setText("");
-    };
+    stopLocalTyping();
+    closeComposerPanels();
+    onSend(preparedText);
+    setText("");
+  };
 
   const submit = (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
-
     sendCurrentMessage();
   };
 
@@ -354,31 +529,16 @@ export default function ChatWindow({
 
     setText(nextValue);
 
-    /*
-     * Input empty hone par immediately
-     * typing stop.
-     */
     if (!nextValue.trim()) {
       stopLocalTyping();
-
       return;
     }
 
-    /*
-     * Sirf first keypress par typing_start.
-     */
-    if (
-      !localTypingRef.current
-    ) {
-      localTypingRef.current =
-        true;
-
+    if (!localTypingRef.current) {
+      localTypingRef.current = true;
       onTypingStart();
     }
 
-    /*
-     * Har keypress par inactivity timer reset.
-     */
     scheduleTypingStop();
   };
 
@@ -391,9 +551,152 @@ export default function ChatWindow({
       !event.shiftKey
     ) {
       event.preventDefault();
-
       sendCurrentMessage();
     }
+  };
+
+  const handleEmojiSelect = (
+    emoji: string
+  ) => {
+    setText(
+      (currentText) =>
+        `${currentText}${emoji}`
+    );
+
+    onEmojiUsed(emoji);
+  };
+
+  const handleImageSelected = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      event.target.value = "";
+      return;
+    }
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(
+        selectedImagePreview
+      );
+    }
+
+    setSelectedImage(file);
+    setSelectedImagePreview(
+      URL.createObjectURL(file)
+    );
+    setMediaCaption("");
+    closeComposerPanels();
+  };
+
+  const sendSelectedImage = async () => {
+    if (!selectedImage || sendingImage) {
+      return;
+    }
+
+    try {
+      setSendingImage(true);
+      stopLocalTyping();
+
+      await onSendImage(
+        selectedImage,
+        mediaCaption.trim()
+      );
+
+      closeImagePreview();
+    } finally {
+      setSendingImage(false);
+    }
+  };
+
+  const requestCurrentLocation = () => {
+    closeComposerPanels();
+    setLocationModalOpen(true);
+    setPendingLocation(null);
+    setLocationError("");
+
+    if (!navigator.geolocation) {
+      setLocationError(
+        "Location is not supported on this device."
+      );
+      return;
+    }
+
+    setLocationLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setPendingLocation({
+          latitude:
+            position.coords.latitude,
+          longitude:
+            position.coords.longitude,
+          address: "Current location",
+        });
+
+        setLocationLoading(false);
+      },
+      (error) => {
+        setLocationLoading(false);
+        setLocationError(
+          error.message ||
+            "Unable to get your location."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 30000,
+      }
+    );
+  };
+
+  const shareCurrentLocation = () => {
+    if (!pendingLocation) {
+      return;
+    }
+
+    onSendLocation(
+      pendingLocation
+    );
+
+    setLocationModalOpen(false);
+    setPendingLocation(null);
+    setLocationError("");
+  };
+
+  const openContactPicker = () => {
+    closeComposerPanels();
+    setContactSearch("");
+    setContactModalOpen(true);
+  };
+
+  const shareContact = (
+    contact: SavedContact
+  ) => {
+    onSendContact({
+      userId:
+        contact.contactUserId,
+      profileId:
+        contact.contactProfileId,
+      name:
+        contact.displayName ||
+        contact.email,
+      email: contact.email,
+      phoneNumber:
+        contact.phoneNumber,
+      profilePhoto:
+        contact.profilePhoto,
+    });
+
+    setContactModalOpen(false);
+    setContactSearch("");
   };
 
   const getSenderId = (
@@ -415,9 +718,7 @@ export default function ChatWindow({
   const renderMessageStatus = (
     message: Message
   ) => {
-    if (
-      message.status === "read"
-    ) {
+    if (message.status === "read") {
       return (
         <CheckCheck
           className="read-ticks"
@@ -435,19 +736,9 @@ export default function ChatWindow({
       );
     }
 
-    return (
-      <Check size={15} />
-    );
+    return <Check size={15} />;
   };
 
-  /*
-   * Header priority:
-   *
-   * typing...
-   * online
-   * last seen
-   * email
-   */
   const presenceLabel =
     isTyping
       ? "typing..."
@@ -571,9 +862,13 @@ export default function ChatWindow({
         {messages.map(
           (message) => {
             const mine =
-              getSenderId(
-                message
-              ) === userId;
+              getSenderId(message) ===
+              userId;
+
+            const mediaUrl =
+              resolveMediaUrl(
+                message.fileUrl
+              );
 
             return (
               <div
@@ -584,29 +879,145 @@ export default function ChatWindow({
                     : "theirs"
                 }`}
               >
-                <div className="message-bubble">
+                <div
+                  className={`message-bubble ${
+                    message.messageType ===
+                    "image"
+                      ? "wa-image-message-bubble"
+                      : ""
+                  }`}
+                >
                   {message.messageType ===
                     "text" && (
                     <span>
-                      {
-                        message.text
-                      }
+                      {message.text}
                     </span>
                   )}
 
-                  {message.fileUrl && (
+                  {message.messageType ===
+                    "image" &&
+                    mediaUrl && (
+                    <div className="wa-chat-image-message">
+                      <a
+                        href={mediaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img
+                          src={mediaUrl}
+                          alt="Shared"
+                          loading="lazy"
+                        />
+                      </a>
+
+                      {message.text && (
+                        <p>
+                          {message.text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {message.messageType ===
+                    "location" &&
+                    message.location && (
                     <a
-                      href={
-                        message.fileUrl
-                      }
+                      className="wa-chat-location-card"
+                      href={`https://www.google.com/maps?q=${message.location.latitude},${message.location.longitude}`}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Open attachment
+                      <span className="wa-chat-location-icon">
+                        <MapPin />
+                      </span>
+
+                      <span>
+                        <strong>
+                          {message.location
+                            .address ||
+                            "Location"}
+                        </strong>
+                        <small>
+                          {message.location.latitude.toFixed(
+                            5
+                          )}
+                          {", "}
+                          {message.location.longitude.toFixed(
+                            5
+                          )}
+                        </small>
+                      </span>
                     </a>
                   )}
 
-                  <small>
+                  {message.messageType ===
+                    "contact" &&
+                    message.contact && (
+                    <div className="wa-chat-contact-card">
+                      <Avatar
+                        src={
+                          message.contact
+                            .profilePhoto ||
+                          ""
+                        }
+                        name={
+                          message.contact
+                            .name ||
+                          "Contact"
+                        }
+                      />
+
+                      <div>
+                        <strong>
+                          {message.contact
+                            .name ||
+                            "Contact"}
+                        </strong>
+
+                        {message.contact
+                          .phoneNumber && (
+                          <span>
+                            {
+                              message.contact
+                                .phoneNumber
+                            }
+                          </span>
+                        )}
+
+                        {!message.contact
+                          .phoneNumber &&
+                          message.contact
+                            .email && (
+                            <span>
+                              {
+                                message.contact
+                                  .email
+                              }
+                            </span>
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  {message.messageType !==
+                    "image" &&
+                    message.messageType !==
+                      "text" &&
+                    message.messageType !==
+                      "location" &&
+                    message.messageType !==
+                      "contact" &&
+                    mediaUrl && (
+                      <a
+                        href={mediaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open attachment
+                      </a>
+                    )}
+
+                  <small className="wa-message-meta">
                     {new Date(
                       message.createdAt
                     ).toLocaleTimeString(
@@ -614,7 +1025,6 @@ export default function ChatWindow({
                       {
                         hour:
                           "2-digit",
-
                         minute:
                           "2-digit",
                       }
@@ -630,26 +1040,160 @@ export default function ChatWindow({
             );
           }
         )}
-
       </div>
 
       <form
         className="message-composer"
         onSubmit={submit}
       >
-        <button
-          type="button"
-          aria-label="Emoji"
-        >
-          <Smile />
-        </button>
+        <div className="wa-composer-action-wrap">
+          <button
+            type="button"
+            className={
+              emojiOpen
+                ? "wa-composer-icon-active"
+                : undefined
+            }
+            onClick={() => {
+              setEmojiOpen(
+                (current) =>
+                  !current
+              );
+              setAttachmentOpen(false);
+            }}
+            aria-label="Emoji"
+          >
+            <Smile />
+          </button>
 
-        <button
-          type="button"
-          aria-label="Attach file"
-        >
-          <Paperclip />
-        </button>
+          {emojiOpen && (
+            <div className="wa-emoji-picker">
+              {recentEmojis.length > 0 && (
+                <section>
+                  <h4>Recent</h4>
+                  <div className="wa-emoji-grid">
+                    {recentEmojis.map(
+                      (emoji) => (
+                        <button
+                          type="button"
+                          key={`recent-${emoji}`}
+                          onClick={() =>
+                            handleEmojiSelect(
+                              emoji
+                            )
+                          }
+                        >
+                          {emoji}
+                        </button>
+                      )
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {EMOJI_GROUPS.map(
+                (group) => (
+                  <section
+                    key={group.label}
+                  >
+                    <h4>
+                      {group.label}
+                    </h4>
+                    <div className="wa-emoji-grid">
+                      {group.emojis.map(
+                        (emoji) => (
+                          <button
+                            type="button"
+                            key={`${group.label}-${emoji}`}
+                            onClick={() =>
+                              handleEmojiSelect(
+                                emoji
+                              )
+                            }
+                          >
+                            {emoji}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </section>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="wa-composer-action-wrap">
+          <button
+            type="button"
+            className={
+              attachmentOpen
+                ? "wa-composer-icon-active"
+                : undefined
+            }
+            onClick={() => {
+              setAttachmentOpen(
+                (current) =>
+                  !current
+              );
+              setEmojiOpen(false);
+            }}
+            aria-label="Attach file"
+          >
+            <Paperclip />
+          </button>
+
+          {attachmentOpen && (
+            <div className="wa-attachment-menu">
+              <button
+                type="button"
+                onClick={() => {
+                  setAttachmentOpen(false);
+                  fileInputRef.current?.click();
+                }}
+              >
+                <span className="wa-attachment-icon gallery">
+                  <ImageIcon />
+                </span>
+                <span>Gallery</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  requestCurrentLocation
+                }
+              >
+                <span className="wa-attachment-icon location">
+                  <MapPin />
+                </span>
+                <span>Location</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  openContactPicker
+                }
+              >
+                <span className="wa-attachment-icon contact">
+                  <ContactRound />
+                </span>
+                <span>Contact</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          className="wa-chat-hidden-file-input"
+          type="file"
+          accept="image/*"
+          onChange={
+            handleImageSelected
+          }
+        />
 
         <input
           value={text}
@@ -680,6 +1224,239 @@ export default function ChatWindow({
           <Send />
         </button>
       </form>
+
+      {selectedImage &&
+        selectedImagePreview && (
+          <div className="wa-chat-modal-overlay">
+            <div className="wa-media-preview-modal">
+              <header>
+                <button
+                  type="button"
+                  onClick={
+                    closeImagePreview
+                  }
+                  disabled={sendingImage}
+                  aria-label="Close preview"
+                >
+                  <X />
+                </button>
+
+                <strong>Send photo</strong>
+              </header>
+
+              <div className="wa-media-preview-stage">
+                <img
+                  src={selectedImagePreview}
+                  alt="Selected"
+                />
+              </div>
+
+              <footer>
+                <input
+                  value={mediaCaption}
+                  onChange={(event) =>
+                    setMediaCaption(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Add a caption"
+                  maxLength={5000}
+                />
+
+                <button
+                  type="button"
+                  className="wa-round-send-button"
+                  onClick={() =>
+                    void sendSelectedImage()
+                  }
+                  disabled={sendingImage}
+                  aria-label="Send photo"
+                >
+                  {sendingImage ? (
+                    <Loader2 className="wa-spin" />
+                  ) : (
+                    <Send />
+                  )}
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+      {locationModalOpen && (
+        <div className="wa-chat-modal-overlay">
+          <div className="wa-location-share-modal">
+            <header>
+              <button
+                type="button"
+                onClick={() => {
+                  setLocationModalOpen(false);
+                  setPendingLocation(null);
+                  setLocationError("");
+                }}
+                aria-label="Close location"
+              >
+                <X />
+              </button>
+              <strong>
+                Send location
+              </strong>
+            </header>
+
+            <div className="wa-location-share-content">
+              {locationLoading && (
+                <div className="wa-location-loading">
+                  <Loader2 className="wa-spin" />
+                  <span>
+                    Getting your current location...
+                  </span>
+                </div>
+              )}
+
+              {!locationLoading &&
+                locationError && (
+                  <div className="wa-location-error">
+                    <MapPin />
+                    <span>
+                      {locationError}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={
+                        requestCurrentLocation
+                      }
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+
+              {!locationLoading &&
+                pendingLocation && (
+                  <div className="wa-location-preview-card">
+                    <div className="wa-location-preview-map">
+                      <MapPin />
+                    </div>
+
+                    <div>
+                      <strong>
+                        Current location
+                      </strong>
+                      <span>
+                        {pendingLocation.latitude.toFixed(
+                          6
+                        )}
+                        {", "}
+                        {pendingLocation.longitude.toFixed(
+                          6
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                className="wa-location-send-button"
+                disabled={
+                  !pendingLocation ||
+                  locationLoading
+                }
+                onClick={
+                  shareCurrentLocation
+                }
+              >
+                <MapPin />
+                Send your current location
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {contactModalOpen && (
+        <div className="wa-chat-modal-overlay">
+          <div className="wa-contact-share-modal">
+            <header>
+              <button
+                type="button"
+                onClick={() =>
+                  setContactModalOpen(false)
+                }
+                aria-label="Close contacts"
+              >
+                <X />
+              </button>
+
+              <strong>
+                Send contact
+              </strong>
+            </header>
+
+            <div className="wa-contact-share-search">
+              <Search />
+              <input
+                value={contactSearch}
+                onChange={(event) =>
+                  setContactSearch(
+                    event.target.value
+                  )
+                }
+                placeholder="Search contacts"
+              />
+            </div>
+
+            <div className="wa-contact-share-list">
+              {filteredContacts.length ===
+              0 ? (
+                <div className="wa-contact-share-empty">
+                  No saved contacts found
+                </div>
+              ) : (
+                filteredContacts.map(
+                  (contact) => (
+                    <button
+                      type="button"
+                      key={
+                        contact.contactId
+                      }
+                      onClick={() =>
+                        shareContact(
+                          contact
+                        )
+                      }
+                    >
+                      <Avatar
+                        src={
+                          contact.profilePhoto
+                        }
+                        name={
+                          contact.displayName ||
+                          contact.email
+                        }
+                      />
+
+                      <span>
+                        <strong>
+                          {contact.displayName ||
+                            contact.email}
+                        </strong>
+
+                        <small>
+                          {contact.phoneNumber ||
+                            contact.email}
+                        </small>
+                      </span>
+                    </button>
+                  )
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
