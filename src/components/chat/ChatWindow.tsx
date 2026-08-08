@@ -14,6 +14,8 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  ChevronDown,
+  ChevronUp,
   ContactRound,
   Image as ImageIcon,
   Loader2,
@@ -107,6 +109,21 @@ type ChatWindowProps = {
 
   onOpenContactInfo:
     () => void;
+
+  onStartCall: (
+    callType: "video" | "audio"
+  ) => void;
+
+  onSearchMessages: (
+    query: string
+  ) => Promise<Message[]>;
+
+  onOpenSearchResult: (
+    messageId: string
+  ) => Promise<void>;
+
+  onCloseSearch: () =>
+    Promise<void>;
 };
 
 const TYPING_STOP_DELAY_MS =
@@ -283,6 +300,10 @@ export default function ChatWindow({
   online,
   lastSeenAt,
   onOpenContactInfo,
+  onStartCall,
+  onSearchMessages,
+  onOpenSearchResult,
+  onCloseSearch,
 }: ChatWindowProps) {
   const [text, setText] =
     useState("");
@@ -326,6 +347,21 @@ export default function ChatWindow({
   const [contactSearch, setContactSearch] =
     useState("");
 
+  const [messageSearchOpen, setMessageSearchOpen] =
+    useState(false);
+
+  const [messageSearchQuery, setMessageSearchQuery] =
+    useState("");
+
+  const [messageSearchResults, setMessageSearchResults] =
+    useState<Message[]>([]);
+
+  const [messageSearchIndex, setMessageSearchIndex] =
+    useState(0);
+
+  const [messageSearchLoading, setMessageSearchLoading] =
+    useState(false);
+
   const messageAreaRef =
     useRef<HTMLDivElement | null>(
       null
@@ -339,6 +375,16 @@ export default function ChatWindow({
   const audioInputRef =
     useRef<HTMLInputElement | null>(
       null
+    );
+
+  const messageSearchInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  const messageRefs =
+    useRef<Map<string, HTMLDivElement>>(
+      new Map()
     );
 
   const typingTimeoutRef =
@@ -444,7 +490,7 @@ export default function ChatWindow({
     const messageArea =
       messageAreaRef.current;
 
-    if (!messageArea) {
+    if (!messageArea || messageSearchOpen) {
       return;
     }
 
@@ -453,6 +499,7 @@ export default function ChatWindow({
   }, [
     conversation._id,
     messages,
+    messageSearchOpen,
   ]);
 
   useEffect(() => {
@@ -463,6 +510,10 @@ export default function ChatWindow({
     setContactModalOpen(false);
     setPendingLocation(null);
     setLocationError("");
+    setMessageSearchOpen(false);
+    setMessageSearchQuery("");
+    setMessageSearchResults([]);
+    setMessageSearchIndex(0);
     closeImagePreview();
 
     return () => {
@@ -769,6 +820,199 @@ export default function ChatWindow({
     setContactSearch("");
   };
 
+  const openMessageSearch = () => {
+    closeComposerPanels();
+    setMessageSearchOpen(true);
+
+    requestAnimationFrame(() => {
+      messageSearchInputRef.current?.focus();
+    });
+  };
+
+  const closeMessageSearch = () => {
+    setMessageSearchOpen(false);
+    setMessageSearchQuery("");
+    setMessageSearchResults([]);
+    setMessageSearchIndex(0);
+    setMessageSearchLoading(false);
+
+    void onCloseSearch().catch(() => undefined);
+  };
+
+  const moveSearchResult = (
+    direction: "previous" | "next"
+  ) => {
+    if (messageSearchResults.length === 0) {
+      return;
+    }
+
+    const nextIndex =
+      direction === "next"
+        ? Math.min(
+            messageSearchIndex + 1,
+            messageSearchResults.length - 1
+          )
+        : Math.max(
+            messageSearchIndex - 1,
+            0
+          );
+
+    if (nextIndex === messageSearchIndex) {
+      return;
+    }
+
+    setMessageSearchIndex(nextIndex);
+
+    const nextMessage =
+      messageSearchResults[nextIndex];
+
+    if (nextMessage?._id) {
+      void onOpenSearchResult(
+        nextMessage._id
+      ).catch(() => undefined);
+    }
+  };
+
+  const renderHighlightedText = (
+    value: string
+  ) => {
+    const query =
+      messageSearchOpen
+        ? messageSearchQuery.trim()
+        : "";
+
+    if (!query || !value) {
+      return value;
+    }
+
+    const escapedQuery =
+      query.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+    const parts = value.split(
+      new RegExp(`(${escapedQuery})`, "gi")
+    );
+
+    return parts.map((part, index) =>
+      part.toLowerCase() ===
+      query.toLowerCase() ? (
+        <mark
+          key={`${part}-${index}`}
+          style={{
+            background: "#ffd54f",
+            color: "#111827",
+            padding: "0 2px",
+            borderRadius: 2,
+          }}
+        >
+          {part}
+        </mark>
+      ) : (
+        <span key={`${part}-${index}`}>
+          {part}
+        </span>
+      )
+    );
+  };
+
+  useEffect(() => {
+    if (!messageSearchOpen) {
+      return;
+    }
+
+    const query =
+      messageSearchQuery.trim();
+
+    if (!query) {
+      setMessageSearchResults([]);
+      setMessageSearchIndex(0);
+      setMessageSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = setTimeout(() => {
+      setMessageSearchLoading(true);
+
+      void onSearchMessages(query)
+        .then(async (results) => {
+          if (cancelled) {
+            return;
+          }
+
+          const safeResults =
+            Array.isArray(results)
+              ? results
+              : [];
+
+          setMessageSearchResults(
+            safeResults
+          );
+          setMessageSearchIndex(0);
+
+          if (safeResults[0]?._id) {
+            await onOpenSearchResult(
+              safeResults[0]._id
+            );
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMessageSearchResults([]);
+            setMessageSearchIndex(0);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setMessageSearchLoading(false);
+          }
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    messageSearchOpen,
+    messageSearchQuery,
+    conversation._id,
+    onSearchMessages,
+    onOpenSearchResult,
+  ]);
+
+  const activeSearchMessageId =
+    messageSearchResults[
+      messageSearchIndex
+    ]?._id || "";
+
+  useEffect(() => {
+    if (
+      !messageSearchOpen ||
+      !activeSearchMessageId
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      messageRefs.current
+        .get(activeSearchMessageId)
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+    }, 40);
+
+    return () => clearTimeout(timer);
+  }, [
+    messageSearchOpen,
+    activeSearchMessageId,
+    messages,
+  ]);
+
   const getSenderId = (
     message: Message
   ): string => {
@@ -840,73 +1084,184 @@ export default function ChatWindow({
           <ArrowLeft />
         </button>
 
-        <button
-          type="button"
-          className="chat-contact-trigger chat-contact-avatar-trigger"
-          onClick={onOpenContactInfo}
-          aria-label="Open contact info"
-        >
-          <Avatar
-            src={
-              conversation.otherUser
-                .profilePhoto
-            }
-            name={
-              conversation.otherUser
-                .name ||
-              conversation.otherUser
-                .email
-            }
-          />
-        </button>
+        {!messageSearchOpen ? (
+          <>
+            <button
+              type="button"
+              className="chat-contact-trigger chat-contact-avatar-trigger"
+              onClick={onOpenContactInfo}
+              aria-label="Open contact info"
+            >
+              <Avatar
+                src={
+                  conversation.otherUser
+                    .profilePhoto
+                }
+                name={
+                  conversation.otherUser
+                    .name ||
+                  conversation.otherUser
+                    .email
+                }
+              />
+            </button>
 
-        <button
-          type="button"
-          className="chat-person chat-contact-trigger"
-          onClick={onOpenContactInfo}
-          aria-label="Open contact info"
-        >
-          <strong>
-            {conversation.otherUser
-              .name ||
-              conversation.otherUser
-                .email}
-          </strong>
+            <button
+              type="button"
+              className="chat-person chat-contact-trigger"
+              onClick={onOpenContactInfo}
+              aria-label="Open contact info"
+            >
+              <strong>
+                {conversation.otherUser
+                  .name ||
+                  conversation.otherUser
+                    .email}
+              </strong>
 
-          <small
-            className={
-              isTyping
-                ? "chat-typing-text"
-                : undefined
-            }
+              <small
+                className={
+                  isTyping
+                    ? "chat-typing-text"
+                    : undefined
+                }
+              >
+                {presenceLabel}
+              </small>
+            </button>
+
+            <div className="chat-actions">
+              <button
+                type="button"
+                aria-label="Video call"
+                onClick={() =>
+                  onStartCall("video")
+                }
+              >
+                <Video />
+              </button>
+
+              <button
+                type="button"
+                aria-label="Voice call"
+                onClick={() =>
+                  onStartCall("audio")
+                }
+              >
+                <Phone />
+              </button>
+
+              <button
+                type="button"
+                aria-label="Search messages"
+                onClick={openMessageSearch}
+              >
+                <Search />
+              </button>
+            </div>
+          </>
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+            }}
           >
-            {presenceLabel}
-          </small>
-        </button>
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                minWidth: 0,
+                padding: "7px 10px",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            >
+              <Search size={18} />
+              <input
+                ref={messageSearchInputRef}
+                value={messageSearchQuery}
+                onChange={(event) =>
+                  setMessageSearchQuery(
+                    event.target.value
+                  )
+                }
+                placeholder="Search messages"
+                autoComplete="off"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: 0,
+                  outline: 0,
+                  background: "transparent",
+                  color: "inherit",
+                  font: "inherit",
+                }}
+              />
+            </div>
 
-        <div className="chat-actions">
-          <button
-            type="button"
-            aria-label="Video call"
-          >
-            <Video />
-          </button>
+            <span
+              style={{
+                minWidth: 54,
+                textAlign: "center",
+                fontSize: 12,
+                opacity: 0.8,
+              }}
+            >
+              {messageSearchLoading
+                ? "..."
+                : messageSearchResults.length > 0
+                  ? `${messageSearchIndex + 1} of ${messageSearchResults.length}`
+                  : messageSearchQuery.trim()
+                    ? "0 of 0"
+                    : ""}
+            </span>
 
-          <button
-            type="button"
-            aria-label="Voice call"
-          >
-            <Phone />
-          </button>
+            <div className="chat-actions">
+              <button
+                type="button"
+                aria-label="Previous search result"
+                disabled={
+                  messageSearchResults.length === 0 ||
+                  messageSearchIndex <= 0
+                }
+                onClick={() =>
+                  moveSearchResult("previous")
+                }
+              >
+                <ChevronUp />
+              </button>
 
-          <button
-            type="button"
-            aria-label="Search messages"
-          >
-            <Search />
-          </button>
+              <button
+                type="button"
+                aria-label="Next search result"
+                disabled={
+                  messageSearchResults.length === 0 ||
+                  messageSearchIndex >=
+                    messageSearchResults.length - 1
+                }
+                onClick={() =>
+                  moveSearchResult("next")
+                }
+              >
+                <ChevronDown />
+              </button>
 
-        </div>
+              <button
+                type="button"
+                aria-label="Close message search"
+                onClick={closeMessageSearch}
+              >
+                <X />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <div
@@ -937,11 +1292,32 @@ export default function ChatWindow({
             return (
               <div
                 key={message._id}
+                ref={(node) => {
+                  if (node) {
+                    messageRefs.current.set(
+                      message._id,
+                      node
+                    );
+                  } else {
+                    messageRefs.current.delete(
+                      message._id
+                    );
+                  }
+                }}
                 className={`message-line ${
                   mine
                     ? "mine"
                     : "theirs"
                 }`}
+                style={
+                  activeSearchMessageId ===
+                  message._id
+                    ? {
+                        scrollMargin: "90px",
+                        filter: "drop-shadow(0 0 7px rgba(255,213,79,0.65))",
+                      }
+                    : undefined
+                }
               >
                 <div
                   className={`message-bubble ${
@@ -954,7 +1330,9 @@ export default function ChatWindow({
                   {message.messageType ===
                     "text" && (
                     <span>
-                      {message.text}
+                      {renderHighlightedText(
+                        message.text
+                      )}
                     </span>
                   )}
 
@@ -976,7 +1354,9 @@ export default function ChatWindow({
 
                       {message.text && (
                         <p>
-                          {message.text}
+                          {renderHighlightedText(
+                            message.text
+                          )}
                         </p>
                       )}
                     </div>
@@ -995,7 +1375,9 @@ export default function ChatWindow({
 
                       {message.text && (
                         <p>
-                          {message.text}
+                          {renderHighlightedText(
+                            message.text
+                          )}
                         </p>
                       )}
                     </div>
