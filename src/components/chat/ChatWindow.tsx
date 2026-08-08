@@ -18,6 +18,7 @@ import {
   Image as ImageIcon,
   Loader2,
   MapPin,
+  Music2,
   MoreVertical,
   Paperclip,
   Phone,
@@ -62,6 +63,15 @@ type ChatWindowProps = {
   onSendImage: (
     file: File,
     caption: string
+  ) => Promise<void>;
+
+  onSendVideo: (
+    file: File,
+    caption: string
+  ) => Promise<void>;
+
+  onSendAudio: (
+    file: File
   ) => Promise<void>;
 
   onSendLocation: (
@@ -256,6 +266,8 @@ export default function ChatWindow({
   onBack,
   onSend,
   onSendImage,
+  onSendVideo,
+  onSendAudio,
   onSendLocation,
   onSendContact,
   onEmojiUsed,
@@ -289,6 +301,9 @@ export default function ChatWindow({
   const [sendingImage, setSendingImage] =
     useState(false);
 
+  const [sendingAudio, setSendingAudio] =
+    useState(false);
+
   const [locationModalOpen, setLocationModalOpen] =
     useState(false);
 
@@ -313,6 +328,11 @@ export default function ChatWindow({
     );
 
   const fileInputRef =
+    useRef<HTMLInputElement | null>(
+      null
+    );
+
+  const audioInputRef =
     useRef<HTMLInputElement | null>(
       null
     );
@@ -609,14 +629,55 @@ export default function ChatWindow({
       setSendingImage(true);
       stopLocalTyping();
 
-      await onSendImage(
-        selectedImage,
-        mediaCaption.trim()
-      );
+      if (
+        selectedImage.type.startsWith(
+          "video/"
+        )
+      ) {
+        await onSendVideo(
+          selectedImage,
+          mediaCaption.trim()
+        );
+      } else {
+        await onSendImage(
+          selectedImage,
+          mediaCaption.trim()
+        );
+      }
 
       closeImagePreview();
     } finally {
       setSendingImage(false);
+    }
+  };
+
+  const handleAudioSelected = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("audio/")) {
+      event.target.value = "";
+      return;
+    }
+
+    if (sendingAudio) {
+      return;
+    }
+
+    try {
+      setSendingAudio(true);
+      stopLocalTyping();
+      closeComposerPanels();
+      await onSendAudio(file);
+    } finally {
+      setSendingAudio(false);
+      event.target.value = "";
     }
   };
 
@@ -887,9 +948,7 @@ export default function ChatWindow({
                 <div
                   className={`message-bubble ${
                     message.messageType ===
-                      "image" ||
-                    message.messageType ===
-                      "video"
+                    "image"
                       ? "wa-image-message-bubble"
                       : ""
                   }`}
@@ -928,7 +987,7 @@ export default function ChatWindow({
                   {message.messageType ===
                     "video" &&
                     mediaUrl && (
-                    <div className="wa-chat-image-message">
+                    <div className="wa-chat-video-message">
                       <video
                         src={mediaUrl}
                         controls
@@ -941,6 +1000,18 @@ export default function ChatWindow({
                           {message.text}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {message.messageType ===
+                    "audio" &&
+                    mediaUrl && (
+                    <div className="wa-chat-audio-message">
+                      <audio
+                        src={mediaUrl}
+                        controls
+                        preload="metadata"
+                      />
                     </div>
                   )}
 
@@ -1028,13 +1099,15 @@ export default function ChatWindow({
                   {message.messageType !==
                     "image" &&
                     message.messageType !==
-                      "video" &&
-                    message.messageType !==
                       "text" &&
                     message.messageType !==
                       "location" &&
                     message.messageType !==
                       "contact" &&
+                    message.messageType !==
+                      "video" &&
+                    message.messageType !==
+                      "audio" &&
                     mediaUrl && (
                       <a
                         href={mediaUrl}
@@ -1188,6 +1261,24 @@ export default function ChatWindow({
 
               <button
                 type="button"
+                disabled={sendingAudio}
+                onClick={() => {
+                  setAttachmentOpen(false);
+                  audioInputRef.current?.click();
+                }}
+              >
+                <span className="wa-attachment-icon audio">
+                  {sendingAudio ? (
+                    <Loader2 className="wa-spin" />
+                  ) : (
+                    <Music2 />
+                  )}
+                </span>
+                <span>Audio</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={
                   requestCurrentLocation
                 }
@@ -1220,6 +1311,16 @@ export default function ChatWindow({
           accept="image/*,video/*"
           onChange={
             handleImageSelected
+          }
+        />
+
+        <input
+          ref={audioInputRef}
+          className="wa-chat-hidden-file-input"
+          type="file"
+          accept="audio/*"
+          onChange={
+            handleAudioSelected
           }
         />
 
@@ -1270,7 +1371,7 @@ export default function ChatWindow({
                 </button>
 
                 <strong>
-                  {selectedImage?.type.startsWith(
+                  {selectedImage.type.startsWith(
                     "video/"
                   )
                     ? "Send video"
@@ -1279,13 +1380,14 @@ export default function ChatWindow({
               </header>
 
               <div className="wa-media-preview-stage">
-                {selectedImage?.type.startsWith(
+                {selectedImage.type.startsWith(
                   "video/"
                 ) ? (
                   <video
                     src={selectedImagePreview}
                     controls
                     playsInline
+                    preload="metadata"
                   />
                 ) : (
                   <img
@@ -1314,7 +1416,13 @@ export default function ChatWindow({
                     void sendSelectedImage()
                   }
                   disabled={sendingImage}
-                  aria-label="Send photo"
+                  aria-label={
+                    selectedImage.type.startsWith(
+                      "video/"
+                    )
+                      ? "Send video"
+                      : "Send photo"
+                  }
                 >
                   {sendingImage ? (
                     <Loader2 className="wa-spin" />

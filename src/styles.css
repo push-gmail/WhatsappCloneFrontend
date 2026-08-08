@@ -3580,3 +3580,54 @@
   width: 100%;
   height: 100%;
 }
+
+/* =====================================================
+   PART 2 + PART 3: REALTIME CHAT MEDIA RENDERING
+   Scoped additions only; existing chat/UI rules unchanged.
+===================================================== */
+.wa-chat-video-message {
+  width: min(360px, 72vw);
+  max-width: 100%;
+}
+
+.wa-chat-video-message video {
+  width: 100%;
+  max-width: 100%;
+  max-height: 420px;
+  display: block;
+  border-radius: 8px;
+  background: #000;
+}
+
+.wa-chat-video-message p {
+  margin: 7px 2px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wa-chat-audio-message {
+  width: min(330px, 72vw);
+  max-width: 100%;
+}
+
+.wa-chat-audio-message audio {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.wa-attachment-icon.audio {
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 768px) {
+  .wa-chat-video-message,
+  .wa-chat-audio-message {
+    width: min(78vw, 330px);
+  }
+
+  .wa-chat-video-message video {
+    max-height: 55vh;
+  }
+}

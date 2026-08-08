@@ -1205,18 +1205,112 @@ export default function ChatsPage() {
 
       if (!fileUrl) {
         throw new Error(
-          "Uploaded media URL was not returned"
+          "Uploaded image URL was not returned"
         );
       }
 
-      const messageType =
-        file.type.startsWith("video/")
-          ? "video"
-          : "image";
+      await sendSocketMessage({
+        messageType: "image",
+        text: caption.trim(),
+        fileUrl,
+      });
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error)
+      );
+      throw error;
+    }
+  };
+
+  const sendVideo = async (
+    file: File,
+    caption: string
+  ) => {
+    if (!conversationId) {
+      toast.error(
+        "Conversation is not selected"
+      );
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("media", file);
+
+      const { data } =
+        await backendApi.post(
+          `/user/chat/conversations/${conversationId}/media`,
+          formData,
+          {
+            headers: {
+              "Content-Type":
+                "multipart/form-data",
+            },
+          }
+        );
+
+      const fileUrl = String(
+        data?.fileUrl || ""
+      ).trim();
+
+      if (!fileUrl) {
+        throw new Error(
+          "Uploaded video URL was not returned"
+        );
+      }
 
       await sendSocketMessage({
-        messageType,
+        messageType: "video",
         text: caption.trim(),
+        fileUrl,
+      });
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error)
+      );
+      throw error;
+    }
+  };
+
+  const sendAudio = async (
+    file: File
+  ) => {
+    if (!conversationId) {
+      toast.error(
+        "Conversation is not selected"
+      );
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("media", file);
+
+      const { data } =
+        await backendApi.post(
+          `/user/chat/conversations/${conversationId}/media`,
+          formData,
+          {
+            headers: {
+              "Content-Type":
+                "multipart/form-data",
+            },
+          }
+        );
+
+      const fileUrl = String(
+        data?.fileUrl || ""
+      ).trim();
+
+      if (!fileUrl) {
+        throw new Error(
+          "Uploaded audio URL was not returned"
+        );
+      }
+
+      await sendSocketMessage({
+        messageType: "audio",
+        text: "",
         fileUrl,
       });
     } catch (error) {
@@ -1371,6 +1465,8 @@ export default function ChatsPage() {
           }
           onSend={send}
           onSendImage={sendImage}
+          onSendVideo={sendVideo}
+          onSendAudio={sendAudio}
           onSendLocation={sendLocation}
           onSendContact={sendContact}
           onEmojiUsed={recordEmojiUsage}

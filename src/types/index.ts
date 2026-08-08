@@ -88,6 +88,7 @@ export type Message = {
   messageType: MessageType;
   text: string;
   fileUrl?: string;
+
   location?: SharedLocation | null;
   contact?: SharedContact | null;
 
