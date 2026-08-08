@@ -3631,3 +3631,310 @@
     max-height: 55vh;
   }
 }
+
+/* =====================================================
+   MOBILE CHAT LAYOUT FIX - 2026-08-08
+   Scoped to chat only. Existing desktop/settings/status flows unchanged.
+===================================================== */
+@media (max-width: 768px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  .chat-layout.chat-open {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .chat-layout.chat-open .chat-window {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    width: 100%;
+    height: 100dvh;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows:
+      60px
+      minmax(0, 1fr)
+      auto;
+  }
+
+  .chat-window .chat-header {
+    width: 100%;
+    height: 60px;
+    min-height: 60px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .chat-window .chat-header > .mobile-only {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 6px;
+    flex: 0 0 36px;
+    place-items: center;
+  }
+
+  .chat-window .chat-contact-avatar-trigger {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    flex: 0 0 38px;
+  }
+
+  .chat-window .chat-contact-avatar-trigger .avatar {
+    width: 38px !important;
+    height: 38px !important;
+  }
+
+  .chat-window .chat-person {
+    min-width: 0;
+    flex: 1 1 auto;
+    margin-left: 4px;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+
+  .chat-window .chat-person strong,
+  .chat-window .chat-person small {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-window .chat-person strong {
+    font-size: 15px;
+    line-height: 18px;
+  }
+
+  .chat-window .chat-person small {
+    min-height: 15px;
+    font-size: 11px;
+    line-height: 15px;
+  }
+
+  /* Old mobile rule hid Search by nth-child. Keep all 3 call/search actions visible. */
+  .chat-window .chat-actions {
+    min-width: max-content;
+    flex: 0 0 auto;
+    margin-left: 2px;
+    display: flex !important;
+    align-items: center;
+    gap: 0;
+  }
+
+  .chat-window .chat-actions > button,
+  .chat-window .chat-actions > button:nth-child(1),
+  .chat-window .chat-actions > button:nth-child(2),
+  .chat-window .chat-actions > button:nth-child(3),
+  .chat-window .chat-actions > button:nth-child(4) {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 7px !important;
+    display: grid !important;
+    place-items: center;
+    flex: 0 0 36px;
+  }
+
+  .chat-window .chat-actions > button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .chat-window .message-area {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 8px 12px;
+    scroll-padding-bottom: 18px;
+  }
+
+  .chat-window .encryption-note {
+    max-width: calc(100vw - 32px);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .chat-window .message-line {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .chat-window .message-bubble {
+    max-width: 88%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .chat-window .wa-chat-image-message,
+  .chat-window .wa-chat-video-message,
+  .chat-window .wa-chat-audio-message {
+    width: min(78vw, 330px);
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .chat-window .wa-chat-image-message img,
+  .chat-window .wa-chat-video-message video {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .chat-window .wa-chat-location-card,
+  .chat-window .wa-chat-contact-card {
+    min-width: 0;
+    max-width: 78vw;
+  }
+
+  .chat-window .message-composer {
+    width: 100%;
+    min-width: 0;
+    min-height: 58px;
+    padding:
+      7px 8px
+      max(7px, env(safe-area-inset-bottom));
+    gap: 2px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 40;
+  }
+
+  .chat-window .message-composer > .wa-composer-action-wrap {
+    flex: 0 0 auto;
+  }
+
+  .chat-window .message-composer button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 7px;
+    display: grid;
+    place-items: center;
+  }
+
+  .chat-window .message-composer button svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .chat-window .message-composer > input:not(.wa-chat-hidden-file-input) {
+    min-width: 0;
+    width: 0;
+    flex: 1 1 auto;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 15px;
+  }
+
+  .chat-window .message-composer .send-btn {
+    flex: 0 0 36px;
+  }
+
+  .chat-window .wa-emoji-picker {
+    bottom: calc(58px + env(safe-area-inset-bottom));
+    max-height: min(46dvh, 360px);
+  }
+
+  .chat-window .wa-attachment-menu {
+    bottom: calc(66px + env(safe-area-inset-bottom));
+  }
+
+  .chat-window .wa-chat-modal-overlay {
+    width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .chat-window .wa-media-preview-modal,
+  .chat-window .wa-location-share-modal,
+  .chat-window .wa-contact-share-modal {
+    max-height: 100dvh;
+  }
+}
+
+@media (max-width: 380px) {
+  .chat-window .chat-header {
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 2px;
+  }
+
+  .chat-window .chat-header > .mobile-only,
+  .chat-window .chat-actions > button,
+  .chat-window .chat-actions > button:nth-child(1),
+  .chat-window .chat-actions > button:nth-child(2),
+  .chat-window .chat-actions > button:nth-child(3),
+  .chat-window .chat-actions > button:nth-child(4) {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    flex-basis: 32px;
+    padding: 6px !important;
+  }
+
+  .chat-window .chat-contact-avatar-trigger,
+  .chat-window .chat-contact-avatar-trigger .avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px;
+  }
+
+  .chat-window .chat-person {
+    margin-left: 2px;
+  }
+
+  .chat-window .chat-person strong {
+    font-size: 14px;
+  }
+
+  .chat-window .chat-actions > button svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .chat-window .message-bubble {
+    max-width: 91%;
+  }
+
+  .chat-window .message-composer {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .chat-window .message-composer button {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 6px;
+  }
+
+  .chat-window .message-composer > input:not(.wa-chat-hidden-file-input) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
