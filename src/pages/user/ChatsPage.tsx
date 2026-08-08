@@ -2083,16 +2083,39 @@ export default function ChatsPage() {
     useCallback(async () => {
       const call = activeCallRef.current;
 
+      console.log("[CALL DEBUG] Accept clicked", {
+        hasSocket: Boolean(socket),
+        callId: call?.callId,
+        phase: call?.phase,
+        callType: call?.callType,
+        hasOffer: Boolean(call?.offer),
+      });
+
       if (
         !socket ||
         !call ||
         call.phase !== "incoming" ||
         !call.offer
       ) {
+        console.error(
+          "[CALL DEBUG] Accept aborted: invalid call state",
+          {
+            hasSocket: Boolean(socket),
+            call,
+          }
+        );
         return;
       }
 
       try {
+        console.log(
+          "[CALL DEBUG] Requesting camera/microphone",
+          {
+            audio: true,
+            video: call.callType === "video",
+          }
+        );
+
         const stream =
           await navigator.mediaDevices.getUserMedia({
             audio: true,
@@ -2100,8 +2123,24 @@ export default function ChatsPage() {
               call.callType === "video",
           });
 
+        console.log("[CALL DEBUG] Local media ready", {
+          audioTracks: stream.getAudioTracks().length,
+          videoTracks: stream.getVideoTracks().length,
+          tracks: stream.getTracks().map((track) => ({
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState,
+            label: track.label,
+          })),
+        });
+
         localCallStreamRef.current = stream;
         setLocalCallStream(stream);
+
+        console.log(
+          "[CALL DEBUG] Creating RTCPeerConnection",
+          call.callId
+        );
 
         const peer = createPeerConnection(
           socket,
@@ -2112,17 +2151,69 @@ export default function ChatsPage() {
           peer.addTrack(track, stream);
         });
 
+        console.log(
+          "[CALL DEBUG] Local tracks added to peer",
+          {
+            senders: peer.getSenders().map((sender) =>
+              sender.track?.kind || "no-track"
+            ),
+          }
+        );
+
+        console.log(
+          "[CALL DEBUG] Setting remote offer",
+          {
+            type: call.offer.type,
+            signalingState: peer.signalingState,
+          }
+        );
+
         await peer.setRemoteDescription(
           call.offer
         );
 
+        console.log(
+          "[CALL DEBUG] Remote offer set successfully",
+          {
+            signalingState: peer.signalingState,
+            remoteDescriptionType:
+              peer.remoteDescription?.type,
+          }
+        );
+
         await flushPendingIceCandidates();
+
+        console.log(
+          "[CALL DEBUG] Pending remote ICE flushed"
+        );
+
+        console.log(
+          "[CALL DEBUG] Creating WebRTC answer"
+        );
 
         const answer =
           await peer.createAnswer();
 
+        console.log("[CALL DEBUG] Answer created", {
+          type: answer.type,
+        });
+
         await peer.setLocalDescription(
           answer
+        );
+
+        console.log(
+          "[CALL DEBUG] Local answer set",
+          {
+            signalingState: peer.signalingState,
+            localDescriptionType:
+              peer.localDescription?.type,
+          }
+        );
+
+        console.log(
+          "[CALL DEBUG] Emitting call_answer",
+          call.callId
         );
 
         socket.emit(
@@ -2132,7 +2223,16 @@ export default function ChatsPage() {
             answer: peer.localDescription,
           },
           (response: SocketAcknowledgement) => {
+            console.log(
+              "[CALL DEBUG] call_answer acknowledgement",
+              response
+            );
+
             if (!response?.ok) {
+              console.error(
+                "[CALL DEBUG] Backend rejected call_answer",
+                response
+              );
               toast.error(
                 response?.error ||
                   "Call could not be answered"
@@ -2151,11 +2251,40 @@ export default function ChatsPage() {
               }
             : current
         );
+
+        console.log(
+          "[CALL DEBUG] Receiver moved to connecting state",
+          call.callId
+        );
       } catch (error) {
+        console.error(
+          "[CALL DEBUG] Accept incoming call failed",
+          error
+        );
+
+        if (error instanceof DOMException) {
+          console.error(
+            "[CALL DEBUG] DOMException details",
+            {
+              name: error.name,
+              message: error.message,
+            }
+          );
+        }
+
         socket.emit("call_reject", {
           callId: call.callId,
-          reason: "permission_denied",
+          reason:
+            error instanceof DOMException &&
+            error.name === "NotAllowedError"
+              ? "permission_denied"
+              : "accept_failed",
         });
+
+        const readableError =
+          error instanceof DOMException
+            ? `${error.name}: ${error.message}`
+            : getErrorMessage(error);
 
         cleanupCall();
         toast.error(
@@ -2164,7 +2293,8 @@ export default function ChatsPage() {
             ? call.callType === "video"
               ? "Camera and microphone permission is required"
               : "Microphone permission is required"
-            : getErrorMessage(error)
+            : readableError ||
+                "Call accept failed"
         );
       }
     }, [
