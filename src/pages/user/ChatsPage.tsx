@@ -1024,6 +1024,77 @@ export default function ChatsPage() {
       }
     };
 
+  const openContactChat = async (
+    contact: SavedContact
+  ) => {
+    try {
+      const { data: conversationData } =
+        await backendApi.post(
+          `/user/chat/conversations/with/${contact.contactUserId}`
+        );
+
+      const openedConversation =
+        conversationData?.conversation;
+
+      const openedConversationId =
+        String(
+          openedConversation?._id ||
+            conversationData?.conversationId ||
+            ""
+        ).trim();
+
+      if (!openedConversationId) {
+        toast.error(
+          "Conversation could not be opened"
+        );
+        return;
+      }
+
+      if (openedConversation?._id) {
+        setConversations(
+          (currentConversations) => {
+            const alreadyExists =
+              currentConversations.some(
+                (conversation) =>
+                  conversation._id ===
+                  openedConversationId
+              );
+
+            if (alreadyExists) {
+              return currentConversations.map(
+                (conversation) =>
+                  conversation._id ===
+                  openedConversationId
+                    ? {
+                        ...conversation,
+                        ...openedConversation,
+                      }
+                    : conversation
+              );
+            }
+
+            return [
+              openedConversation,
+              ...currentConversations,
+            ];
+          }
+        );
+      }
+
+      navigate(
+        `/user/chats/${openedConversationId}`
+      );
+
+      void loadConversations().catch(
+        () => undefined
+      );
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error)
+      );
+    }
+  };
+
   const startTyping = () => {
     if (
       !socket ||
@@ -1469,6 +1540,9 @@ export default function ChatsPage() {
           onSendAudio={sendAudio}
           onSendLocation={sendLocation}
           onSendContact={sendContact}
+          onOpenContactChat={
+            openContactChat
+          }
           onEmojiUsed={recordEmojiUsage}
           recentEmojis={recentEmojis}
           shareableContacts={[

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">whatsapp-clone-frontend</string>
+    <string name="title_activity_main">whatsapp-clone-frontend</string>
+    <string name="package_name">whatsapp.aggr.co.in</string>
+    <string name="custom_url_scheme">whatsapp.aggr.co.in</string>
+</resources>

@@ -82,6 +82,10 @@ type ChatWindowProps = {
     contact: SharedContact
   ) => void;
 
+  onOpenContactChat: (
+    contact: SavedContact
+  ) => void;
+
   onEmojiUsed: (
     emoji: string
   ) => void;
@@ -270,6 +274,7 @@ export default function ChatWindow({
   onSendAudio,
   onSendLocation,
   onSendContact,
+  onOpenContactChat,
   onEmojiUsed,
   recentEmojis,
   shareableContacts,
@@ -1575,7 +1580,7 @@ export default function ChatWindow({
                         contact.contactId
                       }
                       onClick={() =>
-                        shareContact(
+                        onOpenContactChat(
                           contact
                         )
                       }
