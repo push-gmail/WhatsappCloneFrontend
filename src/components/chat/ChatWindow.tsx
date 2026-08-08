@@ -19,7 +19,6 @@ import {
   Loader2,
   MapPin,
   Music2,
-  MoreVertical,
   Paperclip,
   Phone,
   Search,
@@ -907,12 +906,6 @@ export default function ChatWindow({
             <Search />
           </button>
 
-          <button
-            type="button"
-            aria-label="More options"
-          >
-            <MoreVertical />
-          </button>
         </div>
       </header>
 
@@ -1294,6 +1287,8 @@ export default function ChatWindow({
                 <span>Location</span>
               </button>
 
+              {/* Contact attachment temporarily hidden from frontend.
+                  Existing contact/backend/socket support is preserved.
               <button
                 type="button"
                 onClick={
@@ -1305,6 +1300,7 @@ export default function ChatWindow({
                 </span>
                 <span>Contact</span>
               </button>
+              */}
             </div>
           )}
         </div>
