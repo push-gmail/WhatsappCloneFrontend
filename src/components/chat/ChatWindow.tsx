@@ -576,7 +576,12 @@ export default function ChatWindow({
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
+    const isImage =
+      file.type.startsWith("image/");
+    const isVideo =
+      file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
       event.target.value = "";
       return;
     }
@@ -882,7 +887,9 @@ export default function ChatWindow({
                 <div
                   className={`message-bubble ${
                     message.messageType ===
-                    "image"
+                      "image" ||
+                    message.messageType ===
+                      "video"
                       ? "wa-image-message-bubble"
                       : ""
                   }`}
@@ -909,6 +916,25 @@ export default function ChatWindow({
                           loading="lazy"
                         />
                       </a>
+
+                      {message.text && (
+                        <p>
+                          {message.text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {message.messageType ===
+                    "video" &&
+                    mediaUrl && (
+                    <div className="wa-chat-image-message">
+                      <video
+                        src={mediaUrl}
+                        controls
+                        playsInline
+                        preload="metadata"
+                      />
 
                       {message.text && (
                         <p>
@@ -1001,6 +1027,8 @@ export default function ChatWindow({
 
                   {message.messageType !==
                     "image" &&
+                    message.messageType !==
+                      "video" &&
                     message.messageType !==
                       "text" &&
                     message.messageType !==
@@ -1189,7 +1217,7 @@ export default function ChatWindow({
           ref={fileInputRef}
           className="wa-chat-hidden-file-input"
           type="file"
-          accept="image/*"
+          accept="image/*,video/*"
           onChange={
             handleImageSelected
           }
@@ -1241,14 +1269,30 @@ export default function ChatWindow({
                   <X />
                 </button>
 
-                <strong>Send photo</strong>
+                <strong>
+                  {selectedImage?.type.startsWith(
+                    "video/"
+                  )
+                    ? "Send video"
+                    : "Send photo"}
+                </strong>
               </header>
 
               <div className="wa-media-preview-stage">
-                <img
-                  src={selectedImagePreview}
-                  alt="Selected"
-                />
+                {selectedImage?.type.startsWith(
+                  "video/"
+                ) ? (
+                  <video
+                    src={selectedImagePreview}
+                    controls
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={selectedImagePreview}
+                    alt="Selected"
+                  />
+                )}
               </div>
 
               <footer>

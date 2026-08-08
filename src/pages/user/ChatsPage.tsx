@@ -1205,12 +1205,17 @@ export default function ChatsPage() {
 
       if (!fileUrl) {
         throw new Error(
-          "Uploaded image URL was not returned"
+          "Uploaded media URL was not returned"
         );
       }
 
+      const messageType =
+        file.type.startsWith("video/")
+          ? "video"
+          : "image";
+
       await sendSocketMessage({
-        messageType: "image",
+        messageType,
         text: caption.trim(),
         fileUrl,
       });

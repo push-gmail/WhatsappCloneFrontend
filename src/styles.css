@@ -3558,3 +3558,25 @@
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }
+
+
+/* =====================================================
+   PART 1: CHAT GALLERY VIDEO SUPPORT
+   Scoped only to existing chat media preview/messages.
+===================================================== */
+.wa-media-preview-stage video,
+.wa-chat-image-message video {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #000;
+}
+
+.wa-media-preview-stage video {
+  width: 100%;
+  height: 100%;
+}
