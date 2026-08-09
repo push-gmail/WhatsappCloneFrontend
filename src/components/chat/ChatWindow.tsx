@@ -486,7 +486,9 @@ export default function ChatWindow({
     }
   };
 
-  useLayoutEffect(() => {
+  const scrollMessagesToBottom = (
+    behavior: ScrollBehavior = "auto"
+  ) => {
     const messageArea =
       messageAreaRef.current;
 
@@ -494,8 +496,45 @@ export default function ChatWindow({
       return;
     }
 
-    messageArea.scrollTop =
-      messageArea.scrollHeight;
+    messageArea.scrollTo({
+      top: messageArea.scrollHeight,
+      behavior,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (messageSearchOpen) {
+      return;
+    }
+
+    let secondFrame = 0;
+
+    const firstFrame = requestAnimationFrame(() => {
+      scrollMessagesToBottom();
+
+      secondFrame = requestAnimationFrame(() => {
+        scrollMessagesToBottom();
+      });
+    });
+
+    const shortTimer = window.setTimeout(() => {
+      scrollMessagesToBottom();
+    }, 80);
+
+    const mediaTimer = window.setTimeout(() => {
+      scrollMessagesToBottom();
+    }, 300);
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+
+      if (secondFrame) {
+        cancelAnimationFrame(secondFrame);
+      }
+
+      window.clearTimeout(shortTimer);
+      window.clearTimeout(mediaTimer);
+    };
   }, [
     conversation._id,
     messages,
@@ -1349,6 +1388,9 @@ export default function ChatWindow({
                           src={mediaUrl}
                           alt="Shared"
                           loading="lazy"
+                          onLoad={() =>
+                            scrollMessagesToBottom()
+                          }
                         />
                       </a>
 
@@ -1371,6 +1413,9 @@ export default function ChatWindow({
                         controls
                         playsInline
                         preload="metadata"
+                        onLoadedMetadata={() =>
+                          scrollMessagesToBottom()
+                        }
                       />
 
                       {message.text && (
@@ -1391,6 +1436,9 @@ export default function ChatWindow({
                         src={mediaUrl}
                         controls
                         preload="metadata"
+                        onLoadedMetadata={() =>
+                          scrollMessagesToBottom()
+                        }
                       />
                     </div>
                   )}

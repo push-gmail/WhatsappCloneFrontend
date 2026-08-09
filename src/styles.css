@@ -3938,3 +3938,25 @@
     padding-right: 10px;
   }
 }
+/* =====================================================
+   CHAT LATEST MESSAGE / BOTTOM VISIBILITY FIX - 2026-08-09
+   Scoped to chat message viewport only.
+===================================================== */
+.chat-window .message-area {
+  scroll-padding-bottom: 24px;
+}
+
+.chat-window .message-line:last-child {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .chat-window .message-area {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    scroll-padding-bottom: max(28px, env(safe-area-inset-bottom));
+  }
+
+  .chat-window .message-line:last-child {
+    margin-bottom: 8px;
+  }
+}
