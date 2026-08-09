@@ -17,7 +17,7 @@ const backendApi = axios.create({
 });
 
 /* =====================================================
-   REQUEST INTERCEPTOR
+REQUEST INTERCEPTOR
 ===================================================== */
 
 backendApi.interceptors.request.use(
@@ -29,11 +29,13 @@ backendApi.interceptors.request.use(
       sessionStorageService.getSessionId();
 
     if (userId) {
-      config.headers["x-user-id"] = userId;
+      config.headers["x-user-id"] =
+        userId;
     }
 
     if (sessionId) {
-      config.headers["x-session-id"] = sessionId;
+      config.headers["x-session-id"] =
+        sessionId;
     }
 
     return config;
@@ -45,7 +47,7 @@ backendApi.interceptors.request.use(
 );
 
 /* =====================================================
-   RESPONSE INTERCEPTOR
+RESPONSE INTERCEPTOR
 ===================================================== */
 
 backendApi.interceptors.response.use(

@@ -30,6 +30,7 @@ import backendApi, {
 } from "../../api/backendApi";
 
 import ChatList from "../../components/chat/ChatList";
+import LinkedDevicesScanner from "../../components/chat/LinkedDevicesScanner";
 import ChatWindow from "../../components/chat/ChatWindow";
 import EmptyPane from "../../components/layout/EmptyPane";
 import ContactInfoPanel from "../../components/chat/ContactInfoPanel";
@@ -506,6 +507,18 @@ export default function ChatsPage() {
 
   const [search, setSearch] =
     useState("");
+
+  const [
+    linkedDevicesScannerOpen,
+    setLinkedDevicesScannerOpen,
+  ] = useState(false);
+
+  const closeLinkedDevicesScanner =
+    useCallback(() => {
+      setLinkedDevicesScannerOpen(
+        false
+      );
+    }, []);
 
   const [
     presenceByUser,
@@ -1851,6 +1864,148 @@ export default function ChatsPage() {
       }
     };
 
+
+  const openScannedUserChat =
+    useCallback(
+      async (
+        scannedEmail: string
+      ): Promise<boolean> => {
+        const normalizedEmail =
+          scannedEmail
+            .trim()
+            .toLowerCase();
+
+        if (!normalizedEmail) {
+          toast.error(
+            "Invalid QR code"
+          );
+          return false;
+        }
+
+        try {
+          const { data: searchData } =
+            await backendApi.get(
+              "/user/chat/search",
+              {
+                params: {
+                  email:
+                    normalizedEmail,
+                },
+              }
+            );
+
+          const foundUser:
+            | PublicUser
+            | undefined =
+            searchData?.user;
+
+          if (!foundUser?.userId) {
+            toast.error(
+              "User not found"
+            );
+            return false;
+          }
+
+          if (
+            userId &&
+            String(foundUser.userId) ===
+              String(userId)
+          ) {
+            toast.error(
+              "You can't open a chat with yourself"
+            );
+            return false;
+          }
+
+          const {
+            data:
+              conversationData,
+          } =
+            await backendApi.post(
+              `/user/chat/conversations/with/${foundUser.userId}`
+            );
+
+          const openedConversation =
+            conversationData
+              ?.conversation;
+
+          const openedConversationId =
+            String(
+              openedConversation?._id ||
+                conversationData
+                  ?.conversationId ||
+                ""
+            ).trim();
+
+          if (!openedConversationId) {
+            toast.error(
+              "Conversation could not be opened"
+            );
+            return false;
+          }
+
+          if (
+            openedConversation?._id
+          ) {
+            setConversations(
+              (
+                currentConversations
+              ) => {
+                const alreadyExists =
+                  currentConversations.some(
+                    (
+                      conversation
+                    ) =>
+                      conversation._id ===
+                      openedConversationId
+                  );
+
+                if (alreadyExists) {
+                  return currentConversations.map(
+                    (
+                      conversation
+                    ) =>
+                      conversation._id ===
+                      openedConversationId
+                        ? {
+                            ...conversation,
+                            ...openedConversation,
+                          }
+                        : conversation
+                  );
+                }
+
+                return [
+                  openedConversation,
+                  ...currentConversations,
+                ];
+              }
+            );
+          }
+
+          navigate(
+            `/user/chats/${openedConversationId}`
+          );
+
+          void loadConversations().catch(
+            () => undefined
+          );
+
+          return true;
+        } catch (error) {
+          toast.error(
+            getErrorMessage(error)
+          );
+          return false;
+        }
+      },
+      [
+        loadConversations,
+        navigate,
+        userId,
+      ]
+    );
+
   const openContactChat = async (
     contact: SavedContact
   ) => {
@@ -2838,6 +2993,11 @@ export default function ChatsPage() {
         search={search}
         setSearch={setSearch}
         onSearch={searchUser}
+        onOpenLinkedDevices={() =>
+          setLinkedDevicesScannerOpen(
+            true
+          )
+        }
         typingUsersByConversation={
           typingUsersByConversation
         }
@@ -2918,6 +3078,18 @@ export default function ChatsPage() {
       ) : (
         <EmptyPane />
       )}
+
+      <LinkedDevicesScanner
+        open={
+          linkedDevicesScannerOpen
+        }
+        onClose={
+          closeLinkedDevicesScanner
+        }
+        onScannedEmail={
+          openScannedUserChat
+        }
+      />
 
       <ContactInfoPanel
         open={

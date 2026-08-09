@@ -5,7 +5,6 @@ import {
 } from "react";
 
 import {
-  Camera,
   ImagePlus,
   LoaderCircle,
   Upload,
@@ -25,11 +24,95 @@ type StatusUploadModalProps = {
   onUploaded: () => void;
 };
 
+type SelectedMediaType =
+  | "image"
+  | "video"
+  | null;
+
 const IMAGE_MAX_SIZE =
   10 * 1024 * 1024;
 
 const FILE_MAX_SIZE =
   50 * 1024 * 1024;
+
+const IMAGE_EXTENSIONS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "heic",
+  "heif",
+]);
+
+const VIDEO_EXTENSIONS = new Set([
+  "mp4",
+  "webm",
+  "mov",
+  "m4v",
+  "mkv",
+  "3gp",
+]);
+
+const getFileExtension = (
+  fileName: string
+) => {
+  const normalizedName =
+    String(fileName || "")
+      .trim()
+      .toLowerCase();
+
+  const lastDotIndex =
+    normalizedName.lastIndexOf(".");
+
+  if (
+    lastDotIndex < 0 ||
+    lastDotIndex ===
+      normalizedName.length - 1
+  ) {
+    return "";
+  }
+
+  return normalizedName.slice(
+    lastDotIndex + 1
+  );
+};
+
+const getSelectedMediaType = (
+  selectedFile: File
+): SelectedMediaType => {
+  const mimeType = String(
+    selectedFile.type || ""
+  ).toLowerCase();
+
+  if (mimeType.startsWith("image/")) {
+    return "image";
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return "video";
+  }
+
+  /*
+   * Some mobile browsers/file providers can return
+   * an empty MIME type. Extension fallback keeps
+   * gallery selection working without changing the
+   * existing upload flow.
+   */
+  const extension = getFileExtension(
+    selectedFile.name
+  );
+
+  if (IMAGE_EXTENSIONS.has(extension)) {
+    return "image";
+  }
+
+  if (VIDEO_EXTENSIONS.has(extension)) {
+    return "video";
+  }
+
+  return null;
+};
 
 export default function StatusUploadModal({
   open,
@@ -37,10 +120,19 @@ export default function StatusUploadModal({
   onUploaded,
 }: StatusUploadModalProps) {
   const fileInputRef =
-    useRef<HTMLInputElement>(null);
+    useRef<HTMLInputElement | null>(
+      null
+    );
 
   const [file, setFile] =
     useState<File | null>(null);
+
+  const [
+    selectedMediaType,
+    setSelectedMediaType,
+  ] = useState<SelectedMediaType>(
+    null
+  );
 
   const [
     previewUrl,
@@ -76,6 +168,7 @@ export default function StatusUploadModal({
   useEffect(() => {
     if (!open) {
       setFile(null);
+      setSelectedMediaType(null);
       setCaption("");
       setUploading(false);
     }
@@ -92,17 +185,12 @@ export default function StatusUploadModal({
       return;
     }
 
-    const isImage =
-      selectedFile.type.startsWith(
-        "image/"
+    const mediaType =
+      getSelectedMediaType(
+        selectedFile
       );
 
-    const isVideo =
-      selectedFile.type.startsWith(
-        "video/"
-      );
-
-    if (!isImage && !isVideo) {
+    if (!mediaType) {
       toast.error(
         "Only image and video files are allowed"
       );
@@ -122,7 +210,7 @@ export default function StatusUploadModal({
     }
 
     if (
-      isImage &&
+      mediaType === "image" &&
       selectedFile.size >
         IMAGE_MAX_SIZE
     ) {
@@ -133,6 +221,7 @@ export default function StatusUploadModal({
       return;
     }
 
+    setSelectedMediaType(mediaType);
     setFile(selectedFile);
   };
 
@@ -170,15 +259,15 @@ export default function StatusUploadModal({
         cleanCaption
       );
 
+      /*
+       * Do not manually set Content-Type here.
+       * Browser/Axios will add the correct
+       * multipart boundary automatically on both
+       * desktop and mobile browsers.
+       */
       await backendApi.post(
         "/user/status/upload",
-        formData,
-        {
-          headers: {
-            "Content-Type":
-              "multipart/form-data",
-          },
-        }
+        formData
       );
 
       toast.success(
@@ -203,7 +292,7 @@ export default function StatusUploadModal({
       onMouseDown={(event) => {
         if (
           event.target ===
-          event.currentTarget &&
+            event.currentTarget &&
           !uploading
         ) {
           onClose();
@@ -214,13 +303,10 @@ export default function StatusUploadModal({
         className="wa-status-upload-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Upload status"
+        aria-label="Add status"
       >
         <header>
-          <div>
-            <Camera />
-            <h2>Add status</h2>
-          </div>
+          <h2>Add status</h2>
 
           <button
             type="button"
@@ -255,12 +341,13 @@ export default function StatusUploadModal({
           </button>
         ) : (
           <div className="wa-status-upload-preview">
-            {file.type.startsWith(
-              "video/"
-            ) ? (
+            {selectedMediaType ===
+            "video" ? (
               <video
                 src={previewUrl}
                 controls
+                playsInline
+                preload="metadata"
               />
             ) : (
               <img
@@ -286,7 +373,7 @@ export default function StatusUploadModal({
           ref={fileInputRef}
           hidden
           type="file"
-          accept="image/*,video/*"
+          accept="image/*,video/*,.heic,.heif,.mov,.m4v,.3gp"
           onChange={(event) => {
             selectFile(
               event.target.files?.[0]

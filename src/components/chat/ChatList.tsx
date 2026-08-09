@@ -1,6 +1,13 @@
 import {
-  Search,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  Link2,
   MoreVertical,
+  Search,
   SquarePen,
 } from "lucide-react";
 
@@ -12,8 +19,7 @@ import type {
 } from "../../types";
 
 type ChatListProps = {
-  conversations:
-    Conversation[];
+  conversations: Conversation[];
 
   selectedId?: string;
 
@@ -28,6 +34,8 @@ type ChatListProps = {
   ) => void;
 
   onSearch: () => void;
+
+  onOpenLinkedDevices: () => void;
 
   typingUsersByConversation: Map<
     string,
@@ -62,17 +70,88 @@ export default function ChatList({
   search,
   setSearch,
   onSearch,
+  onOpenLinkedDevices,
   typingUsersByConversation,
   savedContactsByUser,
 }: ChatListProps) {
-  return (
-    <section className="chat-list-panel">
-      <header className="panel-header">
-        <h1>
-          WhatsAppClone
-        </h1>
+  const [moreOpen, setMoreOpen] =
+    useState(false);
 
-        <div>
+  const moreMenuRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+  useEffect(() => {
+    if (!moreOpen) {
+      return;
+    }
+
+    const handlePointerDown = (
+      event: MouseEvent | TouchEvent
+    ) => {
+      const target =
+        event.target as Node | null;
+
+      if (
+        target &&
+        !moreMenuRef.current?.contains(
+          target
+        )
+      ) {
+        setMoreOpen(false);
+      }
+    };
+
+    const handleKeyDown = (
+      event: KeyboardEvent
+    ) => {
+      if (event.key === "Escape") {
+        setMoreOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handlePointerDown
+    );
+    document.addEventListener(
+      "touchstart",
+      handlePointerDown,
+      { passive: true }
+    );
+    document.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handlePointerDown
+      );
+      document.removeEventListener(
+        "touchstart",
+        handlePointerDown
+      );
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [moreOpen]);
+
+  const openLinkedDevices = () => {
+    setMoreOpen(false);
+    onOpenLinkedDevices();
+  };
+
+  return (
+    <section className="chat-list-panel chat-list">
+      <header className="panel-header">
+        <h1>WhatsAppClone</h1>
+
+        <div className="chat-list-header-actions">
           <button
             type="button"
             onClick={onSearch}
@@ -81,12 +160,45 @@ export default function ChatList({
             <SquarePen />
           </button>
 
-          <button
-            type="button"
-            aria-label="More options"
+          <div
+            className="wa-chat-more-menu-wrap"
+            ref={moreMenuRef}
           >
-            <MoreVertical />
-          </button>
+            <button
+              type="button"
+              aria-label="More options"
+              aria-haspopup="menu"
+              aria-expanded={moreOpen}
+              onClick={() =>
+                setMoreOpen(
+                  (current) => !current
+                )
+              }
+            >
+              <MoreVertical />
+            </button>
+
+            {moreOpen && (
+              <div
+                className="wa-chat-more-menu"
+                role="menu"
+                aria-label="Chat options"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={
+                    openLinkedDevices
+                  }
+                >
+                  <Link2 />
+                  <span>
+                    Linked devices
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

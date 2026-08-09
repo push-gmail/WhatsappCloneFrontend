@@ -29,6 +29,10 @@ import {
   useAuth,
 } from "../../store/AuthContext";
 
+import {
+  useChatSettings,
+} from "../../store/ChatSettingsContext";
+
 import DesktopRail from "./DesktopRail";
 import MobileBottomNav from "./MobileBottomNav";
 
@@ -58,7 +62,14 @@ export default function UserShell() {
   const {
     sessionStatus,
   } =
-    useOutletContext<ProtectedRouteOutletContext>();
+    useOutletContext<
+      ProtectedRouteOutletContext
+    >();
+
+  const {
+    resolvedTheme,
+  } =
+    useChatSettings();
 
   useEffect(() => {
     let active = true;
@@ -179,7 +190,12 @@ export default function UserShell() {
   ]);
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      data-wa-chat-theme={
+        resolvedTheme
+      }
+    >
       <DesktopRail
         photo={
           sessionStatus ===
@@ -205,6 +221,7 @@ export default function UserShell() {
                 : null,
 
             setProfile,
+
             sessionStatus,
           } satisfies UserShellOutletContext}
         />

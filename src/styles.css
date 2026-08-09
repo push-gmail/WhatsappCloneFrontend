@@ -3937,6 +3937,801 @@
     padding-left: 10px;
     padding-right: 10px;
   }
+}    
+
+
+/*
+ * Append these selectors to your existing stylesheet.
+ * They are scoped only to delete-account OTP UI.
+ */
+
+.delete-panel > .danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.delete-account-spin {
+  width: 18px;
+  height: 18px;
+  animation: deleteAccountSpin 0.9s linear infinite;
+}
+
+@keyframes deleteAccountSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.delete-account-otp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 20, 27, 0.82);
+  backdrop-filter: blur(4px);
+}
+
+.delete-account-otp-modal {
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid var(--wa-border, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  color: var(--wa-text, #e9edef);
+  background: var(--wa-secondary-bg, #202c33);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.delete-account-otp-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delete-account-otp-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #00a884;
+  background: rgba(0, 168, 132, 0.13);
+}
+
+.delete-account-otp-modal > header > button {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--wa-muted, #8696a0);
+  background: transparent;
+  cursor: pointer;
+}
+
+.delete-account-otp-modal > header > button:hover {
+  background: var(--wa-hover, #2a3942);
+}
+
+.delete-account-otp-modal h2 {
+  margin: 22px 0 10px;
+  font-size: 22px;
+}
+
+.delete-account-otp-modal p {
+  margin: 0;
+  color: var(--wa-muted, #aebac1);
+  line-height: 1.55;
+}
+
+.delete-account-otp-modal p strong {
+  color: var(--wa-text, #e9edef);
+}
+
+.delete-account-otp-input {
+  width: 100%;
+  height: 58px;
+  margin-top: 24px;
+  border: 1px solid var(--wa-border, #374248);
+  border-radius: 10px;
+  outline: none;
+  color: var(--wa-text, #e9edef);
+  background: var(--wa-bg, #111b21);
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 12px;
+}
+
+.delete-account-otp-input:focus {
+  border-color: #00a884;
+}
+
+.delete-account-otp-meta {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--wa-muted, #8696a0);
+  font-size: 13px;
+}
+
+.delete-account-otp-meta button {
+  padding: 7px 0;
+  border: 0;
+  color: #00a884;
+  background: transparent;
+  cursor: pointer;
+}
+
+.delete-account-otp-meta button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.delete-account-otp-warning {
+  margin-top: 8px;
+  padding: 13px;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #ffb4bd;
+  background: rgba(241, 92, 109, 0.1);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.delete-account-otp-warning svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+}
+
+.delete-account-otp-modal footer {
+  margin-top: 22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.delete-account-otp-cancel,
+.delete-account-otp-delete {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.delete-account-otp-cancel {
+  border: 1px solid var(--wa-border, #374248);
+  color: var(--wa-text, #e9edef);
+  background: transparent;
+}
+
+.delete-account-otp-delete {
+  border: 0;
+  color: #ffffff;
+  background: #d54848;
+}
+
+.delete-account-otp-cancel:disabled,
+.delete-account-otp-delete:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .delete-account-otp-overlay {
+    padding: 0;
+    align-items: end;
+  }
+
+  .delete-account-otp-modal {
+    width: 100%;
+    padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .delete-account-otp-input {
+    font-size: 24px;
+    letter-spacing: 9px;
+  }
+
+  .delete-account-otp-modal footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .delete-account-otp-cancel,
+  .delete-account-otp-delete {
+    width: 100%;
+  }
+}
+
+
+
+
+
+/* =====================================================
+   GLOBAL WHATSAPP USER THEME
+   Light/Dark applies to complete authenticated user app
+===================================================== */
+
+.app-shell[data-wa-chat-theme="dark"] {
+  --wa-bg: #111b21;
+  --wa-secondary-bg: #202c33;
+  --wa-main-bg: #0b141a;
+  --wa-hover: #202c33;
+  --wa-text: #e9edef;
+  --wa-muted: #8696a0;
+  --wa-border: rgba(255, 255, 255, 0.07);
+
+  --wa-incoming: #202c33;
+  --wa-outgoing: #005c4b;
+
+  --wa-input: #2a3942;
+  --wa-rail: #202c33;
+  --wa-active: #374248;
+  --wa-empty: #222e35;
+
+  --wa-green: #00a884;
+
+  color-scheme: dark;
+}
+
+.app-shell[data-wa-chat-theme="light"] {
+  --wa-bg: #ffffff;
+  --wa-secondary-bg: #f0f2f5;
+  --wa-main-bg: #efeae2;
+  --wa-hover: #f5f6f6;
+  --wa-text: #111b21;
+  --wa-muted: #667781;
+  --wa-border: rgba(17, 27, 33, 0.1);
+
+  --wa-incoming: #ffffff;
+  --wa-outgoing: #d9fdd3;
+
+  --wa-input: #ffffff;
+  --wa-rail: #f0f2f5;
+  --wa-active: #e9edef;
+  --wa-empty: #f7f8fa;
+
+  --wa-green: #00a884;
+
+  color-scheme: light;
+}
+
+
+/* =========================
+   COMPLETE APP SHELL
+========================= */
+
+.app-shell[data-wa-chat-theme] {
+  color: var(--wa-text);
+  background: var(--wa-main-bg);
+}
+
+.app-shell[data-wa-chat-theme] .user-main {
+  color: var(--wa-text);
+  background: var(--wa-main-bg);
+}
+
+
+/* =========================
+   DESKTOP LEFT RAIL
+========================= */
+
+.app-shell[data-wa-chat-theme] .desktop-rail {
+  color: var(--wa-text);
+  background: var(--wa-rail);
+  border-right: 1px solid var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .desktop-rail a,
+.app-shell[data-wa-chat-theme]
+  .desktop-rail button {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .desktop-rail a:hover,
+.app-shell[data-wa-chat-theme]
+  .desktop-rail button:hover {
+  color: var(--wa-text);
+  background: var(--wa-hover);
+}
+
+.app-shell[data-wa-chat-theme]
+  .desktop-rail a.active {
+  color: var(--wa-text);
+  background: var(--wa-active);
+}
+
+
+/* =========================
+   MOBILE BOTTOM NAV
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .mobile-bottom-nav {
+  color: var(--wa-text);
+  background: var(--wa-secondary-bg);
+  border-top-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .mobile-bottom-nav a,
+.app-shell[data-wa-chat-theme]
+  .mobile-bottom-nav button {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .mobile-bottom-nav a.active {
+  color: var(--wa-green);
+}
+
+
+/* =========================
+   COMMON PANELS
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .chat-list-panel,
+.app-shell[data-wa-chat-theme]
+  .settings-panel,
+.app-shell[data-wa-chat-theme]
+  .profile-panel,
+.app-shell[data-wa-chat-theme]
+  .security-panel,
+.app-shell[data-wa-chat-theme]
+  .delete-panel {
+  color: var(--wa-text);
+  background: var(--wa-bg);
+  border-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .panel-header,
+.app-shell[data-wa-chat-theme]
+  .subpage-header {
+  color: var(--wa-text);
+  background: var(--wa-bg);
+}
+
+
+/* =========================
+   EMPTY RIGHT PANE
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .empty-pane {
+  color: var(--wa-muted);
+  background: var(--wa-main-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .empty-card h2 {
+  color: var(--wa-text);
+}
+
+
+/* =========================
+   CHAT LIST
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .search-box {
+  color: var(--wa-muted);
+  background: var(--wa-secondary-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .search-box input {
+  color: var(--wa-text);
+  background: transparent;
+}
+
+.app-shell[data-wa-chat-theme]
+  .search-box input::placeholder {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .conversation-row {
+  color: var(--wa-text);
+}
+
+.app-shell[data-wa-chat-theme]
+  .conversation-row:hover,
+.app-shell[data-wa-chat-theme]
+  .conversation-row.selected {
+  background: var(--wa-hover);
+}
+
+.app-shell[data-wa-chat-theme]
+  .conversation-copy {
+  border-bottom-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .conversation-copy time,
+.app-shell[data-wa-chat-theme]
+  .conversation-copy span {
+  color: var(--wa-muted);
+}
+
+
+/* =========================
+   CHAT WINDOW
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .chat-window {
+  color: var(--wa-text);
+  background: var(--wa-main-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .chat-header,
+.app-shell[data-wa-chat-theme]
+  .message-composer {
+  color: var(--wa-text);
+  background: var(--wa-secondary-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .chat-header button,
+.app-shell[data-wa-chat-theme]
+  .message-composer button {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .message-composer input {
+  color: var(--wa-text);
+  background: var(--wa-input);
+}
+
+.app-shell[data-wa-chat-theme]
+  .message-composer input::placeholder {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .message-bubble {
+  color: var(--wa-text);
+  background: var(--wa-incoming);
+}
+
+.app-shell[data-wa-chat-theme]
+  .message-line.mine
+  .message-bubble {
+  background: var(--wa-outgoing);
+}
+
+
+/* =========================
+   SETTINGS COMMON
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .settings-menu a,
+.app-shell[data-wa-chat-theme]
+  .settings-menu button,
+.app-shell[data-wa-chat-theme]
+  .account-menu a {
+  color: var(--wa-text);
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-menu a:hover,
+.app-shell[data-wa-chat-theme]
+  .settings-menu button:hover,
+.app-shell[data-wa-chat-theme]
+  .account-menu a:hover {
+  background: var(--wa-hover);
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-menu small,
+.app-shell[data-wa-chat-theme]
+  .account-menu small {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .profile-row {
+  color: var(--wa-text);
+  border-bottom-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .profile-row > small {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .inline-edit input {
+  color: var(--wa-text);
+}
+
+.app-shell[data-wa-chat-theme]
+  .form-section input {
+  color: var(--wa-text);
+  background: var(--wa-secondary-bg);
+  border-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .toggle-row {
+  border-top-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .toggle-row small {
+  color: var(--wa-muted);
+}
+
+
+/* =========================
+   PRIVACY
+   Existing selectors use !important,
+   so these overrides also require it.
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page {
+  color: var(--wa-text) !important;
+  background: var(--wa-bg) !important;
+  border-right-color: var(--wa-border) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-page-header {
+  background: var(--wa-bg) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-page-header
+  > button {
+  color: var(--wa-text) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-page-header
+  > button:hover {
+  background: var(--wa-hover) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-page-header h1 {
+  color: var(--wa-text) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-section-title,
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-loading {
+  color: var(--wa-muted) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-main-row {
+  color: var(--wa-text) !important;
+  border-bottom-color: var(--wa-border) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-main-row:hover {
+  background: var(--wa-hover) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-main-row strong {
+  color: var(--wa-text) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-main-row span,
+.app-shell[data-wa-chat-theme]
+  .settings-layout
+  > .settings-panel.privacy-page
+  .privacy-main-row > svg {
+  color: var(--wa-muted) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .privacy-rule-page.settings-panel-page {
+  color: var(--wa-text) !important;
+  background: var(--wa-bg) !important;
+  border-right-color: var(--wa-border) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .privacy-rule-page
+  .privacy-rule-header {
+  background: var(--wa-bg) !important;
+}
+
+.app-shell[data-wa-chat-theme]
+  .privacy-rule-page
+  .privacy-rule-header h1,
+.app-shell[data-wa-chat-theme]
+  .privacy-rule-page
+  .privacy-rule-header button,
+.app-shell[data-wa-chat-theme]
+  .privacy-rule-page
+  .privacy-radio-row {
+  color: var(--wa-text) !important;
+}
+
+
+/* =========================
+   NOTIFICATIONS
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-layout {
+  color: var(--wa-text);
+  background: var(--wa-main-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-panel {
+  color: var(--wa-text);
+  background: var(--wa-bg);
+  border-right-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-header {
+  color: var(--wa-text);
+  background: var(--wa-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-header h1,
+.app-shell[data-wa-chat-theme]
+  .notification-navigation-row,
+.app-shell[data-wa-chat-theme]
+  .notification-navigation-row strong,
+.app-shell[data-wa-chat-theme]
+  .notification-toggle-row strong {
+  color: var(--wa-text);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-header button,
+.app-shell[data-wa-chat-theme]
+  .notification-navigation-row > svg,
+.app-shell[data-wa-chat-theme]
+  .notification-navigation-row span,
+.app-shell[data-wa-chat-theme]
+  .notification-toggle-row span,
+.app-shell[data-wa-chat-theme]
+  .notification-toggle-row > svg,
+.app-shell[data-wa-chat-theme]
+  .notification-info-note {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-settings-header button:hover,
+.app-shell[data-wa-chat-theme]
+  .notification-navigation-row:hover {
+  background: var(--wa-hover);
+}
+
+.app-shell[data-wa-chat-theme]
+  .notification-divider {
+  background: var(--wa-border);
+}
+
+
+/* =========================
+   STATUS / UPDATES
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-layout {
+  color: var(--wa-text);
+  background: var(--wa-main-bg);
+}
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-panel,
+.app-shell[data-wa-chat-theme]
+  .wa-status-panel-header {
+  color: var(--wa-text);
+  background: var(--wa-bg);
+  border-color: var(--wa-border);
+}
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-panel-header h1,
+.app-shell[data-wa-chat-theme]
+  .wa-status-my-row,
+.app-shell[data-wa-chat-theme]
+  .wa-status-my-row strong,
+.app-shell[data-wa-chat-theme]
+  .wa-status-list-row,
+.app-shell[data-wa-chat-theme]
+  .wa-status-list-copy strong {
+  color: var(--wa-text);
+}
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-panel-header button,
+.app-shell[data-wa-chat-theme]
+  .wa-status-my-row small,
+.app-shell[data-wa-chat-theme]
+  .wa-status-list-copy small,
+.app-shell[data-wa-chat-theme]
+  .wa-status-empty-feed {
+  color: var(--wa-muted);
+}
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-list-row:hover,
+.app-shell[data-wa-chat-theme]
+  .wa-status-panel-header button:hover {
+  background: var(--wa-hover);
+}
+
+.app-shell[data-wa-chat-theme]
+  .wa-status-my-section,
+.app-shell[data-wa-chat-theme]
+  .wa-status-list-copy {
+  border-color: var(--wa-border);
+}
+
+
+/* =========================
+   AVATAR
+========================= */
+
+.app-shell[data-wa-chat-theme]
+  .avatar {
+  color: var(--wa-muted);
+  background: var(--wa-secondary-bg);
 }
 /* =====================================================
    CHAT LATEST MESSAGE / BOTTOM VISIBILITY FIX - 2026-08-09
@@ -3958,5 +4753,430 @@
 
   .chat-window .message-line:last-child {
     margin-bottom: 8px;
+  }
+}
+
+
+/* =====================================================
+   LINKED DEVICES / QR USER SCANNER - 2026-08-09
+   New feature only. Existing chat/settings flows untouched.
+===================================================== */
+
+.wa-chat-more-menu-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.wa-chat-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  width: 220px;
+  padding: 8px 0;
+  border: 1px solid var(--wa-border, rgba(255, 255, 255, 0.07));
+  border-radius: 8px;
+  color: var(--wa-text, #e9edef);
+  background: var(--wa-secondary-bg, #202c33);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+.wa-chat-more-menu > button {
+  width: 100% !important;
+  min-height: 48px;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 13px !important;
+  color: var(--wa-text, #e9edef) !important;
+  background: transparent !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wa-chat-more-menu > button:hover {
+  background: var(--wa-hover, #2a3942) !important;
+}
+
+.wa-chat-more-menu > button svg {
+  width: 19px;
+  height: 19px;
+  color: var(--wa-muted, #8696a0);
+}
+
+.wa-chat-more-menu > button span {
+  color: inherit;
+  font-size: 14px;
+}
+
+.wa-linked-devices-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  padding: 22px;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 10, 12, 0.76);
+  backdrop-filter: blur(4px);
+}
+
+.wa-linked-devices-modal {
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100dvh - 44px));
+  overflow: hidden;
+  border: 1px solid var(--wa-border, rgba(255, 255, 255, 0.08));
+  border-radius: 16px;
+  color: var(--wa-text, #e9edef);
+  background: var(--wa-bg, #111b21);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.48);
+}
+
+.wa-linked-devices-header {
+  min-height: 72px;
+  padding: 13px 16px 13px 20px;
+  border-bottom: 1px solid var(--wa-border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--wa-secondary-bg, #202c33);
+}
+
+.wa-linked-devices-header > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wa-linked-devices-header strong {
+  color: var(--wa-text, #e9edef);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.wa-linked-devices-header span {
+  color: var(--wa-muted, #8696a0);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.wa-linked-devices-header > button {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--wa-muted, #8696a0) !important;
+  background: transparent !important;
+  cursor: pointer;
+}
+
+.wa-linked-devices-header > button:hover {
+  color: var(--wa-text, #e9edef) !important;
+  background: var(--wa-hover, #2a3942) !important;
+}
+
+.wa-linked-devices-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.wa-linked-devices-camera-shell {
+  position: relative;
+  width: min(440px, 100%);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #060a0b;
+}
+
+.wa-linked-devices-reader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #060a0b;
+}
+
+.wa-linked-devices-reader > div,
+.wa-linked-devices-reader video {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.wa-linked-devices-reader video {
+  display: block !important;
+  object-fit: cover !important;
+}
+
+.wa-linked-devices-reader img,
+.wa-linked-devices-reader button,
+.wa-linked-devices-reader select {
+  display: none !important;
+}
+
+.wa-linked-devices-scan-frame {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  top: 50%;
+  width: min(68%, 286px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.wa-linked-devices-scan-frame i {
+  position: absolute;
+  z-index: 2;
+  width: 46px;
+  height: 46px;
+  border-color: #00a884;
+  border-style: solid;
+}
+
+.wa-linked-devices-scan-frame i:nth-child(1) {
+  left: 0;
+  top: 0;
+  border-width: 4px 0 0 4px;
+  border-radius: 10px 0 0 0;
+}
+
+.wa-linked-devices-scan-frame i:nth-child(2) {
+  right: 0;
+  top: 0;
+  border-width: 4px 4px 0 0;
+  border-radius: 0 10px 0 0;
+}
+
+.wa-linked-devices-scan-frame i:nth-child(3) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 4px 4px 0;
+  border-radius: 0 0 10px 0;
+}
+
+.wa-linked-devices-scan-frame i:nth-child(4) {
+  left: 0;
+  bottom: 0;
+  border-width: 0 0 4px 4px;
+  border-radius: 0 0 0 10px;
+}
+
+.wa-linked-devices-scan-frame > span {
+  position: absolute;
+  z-index: 2;
+  left: 7%;
+  right: 7%;
+  top: 12%;
+  height: 2px;
+  border-radius: 4px;
+  background: #00a884;
+  box-shadow: 0 0 14px rgba(0, 168, 132, 0.9);
+  animation: wa-linked-devices-scan-line 2.1s ease-in-out infinite;
+}
+
+@keyframes wa-linked-devices-scan-line {
+  0%,
+  100% {
+    top: 12%;
+    opacity: 0.75;
+  }
+
+  50% {
+    top: 86%;
+    opacity: 1;
+  }
+}
+
+.wa-linked-devices-camera-state,
+.wa-linked-devices-camera-error {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  color: #e9edef;
+  background: rgba(6, 10, 11, 0.84);
+  text-align: center;
+}
+
+.wa-linked-devices-camera-state svg,
+.wa-linked-devices-camera-error > svg {
+  width: 28px;
+  height: 28px;
+  color: #00a884;
+}
+
+.wa-linked-devices-camera-state span,
+.wa-linked-devices-camera-error span {
+  max-width: 330px;
+  color: #aebac1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.wa-linked-devices-camera-error strong {
+  color: #e9edef;
+  font-size: 16px;
+}
+
+.wa-linked-devices-camera-error button {
+  min-width: 110px;
+  height: 38px;
+  margin-top: 4px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 20px;
+  color: #071a16;
+  background: #00a884;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wa-linked-devices-spin {
+  animation: wa-linked-devices-spin 0.9s linear infinite;
+}
+
+@keyframes wa-linked-devices-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.wa-linked-devices-help {
+  width: min(440px, 100%);
+  margin: 18px auto 0;
+  padding: 14px 15px;
+  border: 1px solid var(--wa-border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--wa-secondary-bg, #202c33);
+}
+
+.wa-linked-devices-help > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #00a884;
+}
+
+.wa-linked-devices-help > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wa-linked-devices-help strong {
+  color: var(--wa-text, #e9edef);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wa-linked-devices-help span {
+  color: var(--wa-muted, #8696a0);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .wa-chat-more-menu {
+    right: -2px;
+    width: min(230px, calc(100vw - 28px));
+  }
+
+  .wa-linked-devices-overlay {
+    padding: 0;
+    place-items: stretch;
+    background: #060a0b;
+    backdrop-filter: none;
+  }
+
+  .wa-linked-devices-modal {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    background: #060a0b;
+  }
+
+  .wa-linked-devices-header {
+    min-height: 64px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    color: #e9edef;
+    background: #111b21;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .wa-linked-devices-header strong {
+    color: #e9edef;
+  }
+
+  .wa-linked-devices-header span {
+    color: #8696a0;
+  }
+
+  .wa-linked-devices-header > button {
+    color: #d1d7db !important;
+  }
+
+  .wa-linked-devices-body {
+    min-height: 0;
+    padding: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow: hidden;
+    background: #060a0b;
+  }
+
+  .wa-linked-devices-camera-shell {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+
+  .wa-linked-devices-scan-frame {
+    width: min(72vw, 300px);
+  }
+
+  .wa-linked-devices-help {
+    width: 100%;
+    margin: 0;
+    padding: 14px 18px calc(16px + env(safe-area-inset-bottom));
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0;
+    color: #e9edef;
+    background: #111b21;
+  }
+
+  .wa-linked-devices-help strong {
+    color: #e9edef;
+  }
+
+  .wa-linked-devices-help span {
+    color: #8696a0;
   }
 }
