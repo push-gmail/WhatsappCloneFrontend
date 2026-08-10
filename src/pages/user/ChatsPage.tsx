@@ -305,7 +305,7 @@ function CallOverlay({
       localVideoRef.current.srcObject =
         localStream;
     }
-  }, [localStream]);
+  }, [localStream, call.phase]);
 
   useEffect(() => {
     if (remoteVideoRef.current) {
@@ -317,7 +317,7 @@ function CallOverlay({
       remoteAudioRef.current.srcObject =
         remoteStream;
     }
-  }, [remoteStream]);
+  }, [remoteStream, call.phase]);
 
   const displayName =
     call.otherUser.name ||
