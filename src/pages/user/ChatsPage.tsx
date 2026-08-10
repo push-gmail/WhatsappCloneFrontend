@@ -193,6 +193,88 @@ const stopStream = (
   });
 };
 
+const VIDEO_CAMERA_MAX_ATTEMPTS = 5;
+const VIDEO_CAMERA_RETRY_DELAY_MS = 5000;
+
+const waitForCameraRetry = (ms: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
+const getVideoCallStreamWithRetry = async () => {
+  let lastError: unknown = null;
+
+  for (
+    let attempt = 1;
+    attempt <= VIDEO_CAMERA_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      console.log(
+        `[CALL DEBUG] Video camera attempt ${attempt}/${VIDEO_CAMERA_MAX_ATTEMPTS}`
+      );
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+
+      const videoTrack =
+        stream.getVideoTracks()[0];
+
+      if (
+        videoTrack &&
+        videoTrack.readyState === "live"
+      ) {
+        console.log(
+          `[CALL DEBUG] Video camera ready on attempt ${attempt}/${VIDEO_CAMERA_MAX_ATTEMPTS}`
+        );
+
+        return stream;
+      }
+
+      stopStream(stream);
+      lastError = new Error(
+        "Camera stream did not provide a live video track"
+      );
+    } catch (error) {
+      lastError = error;
+
+      console.warn(
+        `[CALL DEBUG] Video camera attempt ${attempt}/${VIDEO_CAMERA_MAX_ATTEMPTS} failed`,
+        error
+      );
+
+      if (
+        error instanceof DOMException &&
+        (error.name === "NotAllowedError" ||
+          error.name === "SecurityError" ||
+          error.name === "NotFoundError")
+      ) {
+        throw error;
+      }
+    }
+
+    if (attempt < VIDEO_CAMERA_MAX_ATTEMPTS) {
+      console.log(
+        `[CALL DEBUG] Waiting ${VIDEO_CAMERA_RETRY_DELAY_MS / 1000} seconds before camera retry`
+      );
+
+      await waitForCameraRetry(
+        VIDEO_CAMERA_RETRY_DELAY_MS
+      );
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      "Camera could not be started after 5 attempts"
+    )
+  );
+};
+
 type CallOverlayProps = {
   call: ActiveCall;
   localStream: MediaStream | null;
@@ -2112,11 +2194,12 @@ export default function ChatsPage() {
 
         try {
           const stream =
-            await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video:
-                callType === "video",
-            });
+            callType === "video"
+              ? await getVideoCallStreamWithRetry()
+              : await navigator.mediaDevices.getUserMedia({
+                  audio: true,
+                  video: false,
+                });
 
           localCallStreamRef.current = stream;
           setLocalCallStream(stream);
@@ -2272,11 +2355,12 @@ export default function ChatsPage() {
         );
 
         const stream =
-          await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video:
-              call.callType === "video",
-          });
+          call.callType === "video"
+            ? await getVideoCallStreamWithRetry()
+            : await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: false,
+              });
 
         console.log("[CALL DEBUG] Local media ready", {
           audioTracks: stream.getAudioTracks().length,
