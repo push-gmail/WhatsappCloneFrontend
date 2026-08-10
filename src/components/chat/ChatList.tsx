@@ -7,6 +7,7 @@ import {
 import {
   Link2,
   MoreVertical,
+  QrCode,
   Search,
   SquarePen,
 } from "lucide-react";
@@ -36,6 +37,8 @@ type ChatListProps = {
   onSearch: () => void;
 
   onOpenLinkedDevices: () => void;
+
+  onOpenScanQr: () => void;
 
   typingUsersByConversation: Map<
     string,
@@ -71,6 +74,7 @@ export default function ChatList({
   setSearch,
   onSearch,
   onOpenLinkedDevices,
+  onOpenScanQr,
   typingUsersByConversation,
   savedContactsByUser,
 }: ChatListProps) {
@@ -146,8 +150,13 @@ export default function ChatList({
     onOpenLinkedDevices();
   };
 
+  const openScanQr = () => {
+    setMoreOpen(false);
+    onOpenScanQr();
+  };
+
   return (
-    <section className="chat-list-panel chat-list">
+    <section className="chat-list-panel">
       <header className="panel-header">
         <h1>WhatsAppClone</h1>
 
@@ -195,6 +204,15 @@ export default function ChatList({
                   <span>
                     Linked devices
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={openScanQr}
+                >
+                  <QrCode />
+                  <span>Scan QR</span>
                 </button>
               </div>
             )}

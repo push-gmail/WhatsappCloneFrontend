@@ -30,7 +30,8 @@ import backendApi, {
 } from "../../api/backendApi";
 
 import ChatList from "../../components/chat/ChatList";
-import LinkedDevicesScanner from "../../components/chat/LinkedDevicesScanner";
+import LinkedDevicesQr from "../../components/chat/LinkedDevicesQr";
+import ChatQrScanner from "../../components/chat/ChatQrScanner";
 import ChatWindow from "../../components/chat/ChatWindow";
 import EmptyPane from "../../components/layout/EmptyPane";
 import ContactInfoPanel from "../../components/chat/ContactInfoPanel";
@@ -600,6 +601,16 @@ export default function ChatsPage() {
       setLinkedDevicesScannerOpen(
         false
       );
+    }, []);
+
+  const [
+    chatQrScannerOpen,
+    setChatQrScannerOpen,
+  ] = useState(false);
+
+  const closeChatQrScanner =
+    useCallback(() => {
+      setChatQrScannerOpen(false);
     }, []);
 
   const [
@@ -3082,6 +3093,9 @@ export default function ChatsPage() {
             true
           )
         }
+        onOpenScanQr={() =>
+          setChatQrScannerOpen(true)
+        }
         typingUsersByConversation={
           typingUsersByConversation
         }
@@ -3163,13 +3177,18 @@ export default function ChatsPage() {
         <EmptyPane />
       )}
 
-      <LinkedDevicesScanner
+      <LinkedDevicesQr
         open={
           linkedDevicesScannerOpen
         }
         onClose={
           closeLinkedDevicesScanner
         }
+      />
+
+      <ChatQrScanner
+        open={chatQrScannerOpen}
+        onClose={closeChatQrScanner}
         onScannedEmail={
           openScannedUserChat
         }
