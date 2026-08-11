@@ -1,0 +1,20 @@
+{
+  "name": "@whatsappclone/call-audio-route",
+  "version": "1.0.0",
+  "description": "Local Capacitor Android plugin for WhatsApp-style in-call audio routing and call-recording save support.",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "android/",
+    "dist/"
+  ],
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  },
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}
