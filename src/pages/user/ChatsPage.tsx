@@ -183,11 +183,7 @@ const buildRtcConfiguration = (): RTCConfiguration => {
     });
   }
 
-  return {
-    iceServers,
-    iceCandidatePoolSize: 10,
-    iceTransportPolicy: "all",
-  };
+  return { iceServers };
 };
 
 const stopStream = (
@@ -895,48 +891,13 @@ export default function ChatsPage() {
         };
 
         peer.ontrack = (event) => {
-          const incomingTracks =
-            event.streams[0]?.getTracks() ||
-            [event.track];
+          const stream =
+            event.streams[0] ||
+            new MediaStream([event.track]);
 
-          const tracksById = new Map(
-            (remoteCallStreamRef.current?.getTracks() || []).map(
-              (track) => [track.id, track]
-            )
-          );
-
-          incomingTracks.forEach((track) => {
-            tracksById.set(track.id, track);
-          });
-
-          const stream = new MediaStream(
-            Array.from(tracksById.values())
-          );
-
-          remoteCallStreamRef.current = stream;
+          remoteCallStreamRef.current =
+            stream;
           setRemoteCallStream(stream);
-
-          console.log("[CALL ICE] Remote track received", {
-            callId,
-            kind: event.track.kind,
-            readyState: event.track.readyState,
-            audioTracks: stream.getAudioTracks().length,
-            videoTracks: stream.getVideoTracks().length,
-          });
-        };
-
-        peer.oniceconnectionstatechange = () => {
-          console.log("[CALL ICE] iceConnectionState", {
-            callId,
-            state: peer.iceConnectionState,
-          });
-        };
-
-        peer.onicegatheringstatechange = () => {
-          console.log("[CALL ICE] iceGatheringState", {
-            callId,
-            state: peer.iceGatheringState,
-          });
         };
 
         peer.onconnectionstatechange = () => {
