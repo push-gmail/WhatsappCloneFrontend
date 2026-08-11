@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 
 import {
@@ -27,6 +28,7 @@ import {
   Square,
   Video,
   Volume2,
+  VolumeX,
 } from "lucide-react";
 
 import backendApi, {
@@ -289,6 +291,577 @@ const getVideoCallStreamWithRetry = async () => {
   );
 };
 
+type AudioCallOverlayProps = {
+  call: ActiveCall;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+  onEnd: () => void;
+};
+
+type AudioElementWithSink = HTMLAudioElement & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
+type MediaDevicesWithOutputPicker = MediaDevices & {
+  selectAudioOutput?: () => Promise<MediaDeviceInfo>;
+};
+
+const formatCallDuration = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return [minutes, remainingSeconds]
+    .map((value) => String(value).padStart(2, "0"))
+    .join(":");
+};
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      const value = String(reader.result || "");
+      resolve(value.includes(",") ? value.split(",")[1] : value);
+    };
+
+    reader.onerror = () => {
+      reject(reader.error || new Error("Recording could not be read"));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+
+function AudioCallOverlay({
+  call,
+  localStream,
+  remoteStream,
+  onEnd,
+}: AudioCallOverlayProps) {
+  const remoteAudioRef =
+    useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef =
+    useRef<MediaRecorder | null>(null);
+  const recordedChunksRef =
+    useRef<Blob[]>([]);
+  const nativeRouteStartedRef =
+    useRef(false);
+
+  const [isMuted, setIsMuted] =
+    useState(false);
+  const [speakerOn, setSpeakerOn] =
+    useState(false);
+  const [isRecording, setIsRecording] =
+    useState(false);
+  const [callSeconds, setCallSeconds] =
+    useState(0);
+
+  const displayName =
+    call.otherUser.name ||
+    call.otherUser.email ||
+    "WhatsApp user";
+
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject =
+        remoteStream;
+    }
+  }, [remoteStream, call.phase]);
+
+  useEffect(() => {
+    if (call.phase !== "connected") {
+      setCallSeconds(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCallSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [call.callId, call.phase]);
+
+  useEffect(() => {
+    if (nativeRouteStartedRef.current) {
+      return;
+    }
+
+    nativeRouteStartedRef.current = true;
+
+    void startNativeAudioCall(false).catch((error) => {
+      console.error(
+        "Native audio route start failed:",
+        error
+      );
+    });
+
+    return () => {
+      nativeRouteStartedRef.current = false;
+      void endNativeAudioCall().catch((error) => {
+        console.error(
+          "Native audio route cleanup failed:",
+          error
+        );
+      });
+    };
+  }, [call.callId]);
+
+  useEffect(() => {
+    return () => {
+      const recorder = mediaRecorderRef.current;
+
+      if (recorder && recorder.state !== "inactive") {
+        recorder.stop();
+      }
+    };
+  }, []);
+
+  const toggleMute = () => {
+    const audioTracks =
+      localStream?.getAudioTracks() || [];
+
+    if (!audioTracks.length) {
+      toast.error("Microphone is not available");
+      return;
+    }
+
+    const nextMuted = !isMuted;
+
+    audioTracks.forEach((track) => {
+      track.enabled = !nextMuted;
+    });
+
+    setIsMuted(nextMuted);
+  };
+
+  const toggleSpeaker = async () => {
+    const nextSpeakerOn = !speakerOn;
+
+    try {
+      if (isNativeAndroidCallAudio()) {
+        await setNativeCallSpeaker(nextSpeakerOn);
+        setSpeakerOn(nextSpeakerOn);
+        return;
+      }
+
+      const audio =
+        remoteAudioRef.current as AudioElementWithSink | null;
+
+      if (!audio?.setSinkId) {
+        toast(
+          "Browser controls audio output through the system speaker settings"
+        );
+        return;
+      }
+
+      if (!nextSpeakerOn) {
+        await audio.setSinkId("default");
+        setSpeakerOn(false);
+        return;
+      }
+
+      const mediaDevices =
+        navigator.mediaDevices as MediaDevicesWithOutputPicker;
+
+      if (mediaDevices.selectAudioOutput) {
+        const device =
+          await mediaDevices.selectAudioOutput();
+
+        await audio.setSinkId(device.deviceId);
+        setSpeakerOn(true);
+        return;
+      }
+
+      toast(
+        "Choose the speaker from your browser or system audio output settings"
+      );
+    } catch (error) {
+      console.error("Speaker switch failed:", error);
+      toast.error("Speaker could not be changed");
+    }
+  };
+
+  const saveRecordingBlob = async (blob: Blob) => {
+    const extension =
+      blob.type.includes("ogg") ? "ogg" : "webm";
+    const fileName =
+      `whatsapp-audio-call-${Date.now()}.${extension}`;
+
+    if (isNativeAndroidCallAudio()) {
+      const base64 = await blobToBase64(blob);
+
+      const result = await saveNativeCallRecording({
+        base64,
+        fileName,
+        mimeType: blob.type || "audio/webm",
+      });
+
+      toast.success(
+        result?.path || result?.uri
+          ? "Call recording saved"
+          : "Call recording completed"
+      );
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+
+    toast.success("Call recording downloaded");
+  };
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current;
+
+    if (!recorder || recorder.state === "inactive") {
+      setIsRecording(false);
+      return;
+    }
+
+    recorder.stop();
+  };
+
+  const startRecording = () => {
+    if (typeof MediaRecorder === "undefined") {
+      toast.error(
+        "Call recording is not supported on this device"
+      );
+      return;
+    }
+
+    const audioTracks = [
+      ...(localStream?.getAudioTracks() || []),
+      ...(remoteStream?.getAudioTracks() || []),
+    ];
+
+    if (!audioTracks.length) {
+      toast.error("Call audio is not ready yet");
+      return;
+    }
+
+    try {
+      const recordingStream =
+        new MediaStream(audioTracks);
+
+      const preferredMimeType =
+        MediaRecorder.isTypeSupported(
+          "audio/webm;codecs=opus"
+        )
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported(
+                "audio/webm"
+              )
+            ? "audio/webm"
+            : "";
+
+      const recorder = preferredMimeType
+        ? new MediaRecorder(recordingStream, {
+            mimeType: preferredMimeType,
+          })
+        : new MediaRecorder(recordingStream);
+
+      recordedChunksRef.current = [];
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(
+            event.data
+          );
+        }
+      };
+
+      recorder.onerror = (event) => {
+        console.error(
+          "Call recording failed:",
+          event
+        );
+        setIsRecording(false);
+        toast.error("Call recording failed");
+      };
+
+      recorder.onstop = () => {
+        const chunks =
+          recordedChunksRef.current;
+
+        mediaRecorderRef.current = null;
+        recordedChunksRef.current = [];
+        setIsRecording(false);
+
+        if (!chunks.length) {
+          toast.error(
+            "No call audio was captured"
+          );
+          return;
+        }
+
+        const blob = new Blob(chunks, {
+          type:
+            recorder.mimeType ||
+            "audio/webm",
+        });
+
+        void saveRecordingBlob(blob).catch(
+          (error) => {
+            console.error(
+              "Recording save failed:",
+              error
+            );
+            toast.error(
+              "Recording could not be saved"
+            );
+          }
+        );
+      };
+
+      recorder.start(1000);
+      setIsRecording(true);
+      toast.success("Call recording started");
+    } catch (error) {
+      console.error(
+        "Call recording start failed:",
+        error
+      );
+      toast.error("Call recording could not start");
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    startRecording();
+  };
+
+  const controlButtonStyle = (
+    active: boolean,
+    danger = false
+  ): CSSProperties => ({
+    width: 62,
+    height: 62,
+    borderRadius: "50%",
+    border: "1px solid rgba(255,255,255,0.12)",
+    color: "white",
+    background: danger
+      ? "#ef4444"
+      : active
+        ? "#f8fafc"
+        : "rgba(255,255,255,0.10)",
+    cursor: "pointer",
+    display: "grid",
+    placeItems: "center",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+  });
+
+  const controlIconStyle = (
+    active: boolean
+  ): CSSProperties => ({
+    color: active ? "#111827" : "white",
+  });
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        color: "white",
+        background:
+          "radial-gradient(circle at 50% 22%, #1f4c46 0%, #102522 38%, #07110f 72%)",
+      }}
+    >
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+      />
+
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "34px 20px 18px",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 132,
+            height: 132,
+            borderRadius: "50%",
+            overflow: "hidden",
+            boxShadow:
+              "0 18px 48px rgba(0,0,0,0.35)",
+          }}
+        >
+          <Avatar
+            src={call.otherUser.profilePhoto}
+            name={displayName}
+          />
+        </div>
+
+        <h2
+          style={{
+            margin: "22px 0 6px",
+            fontSize: 27,
+          }}
+        >
+          {displayName}
+        </h2>
+
+        <div
+          style={{
+            minHeight: 22,
+            fontSize: 14,
+            opacity: 0.78,
+          }}
+        >
+          {call.phase === "outgoing"
+            ? "Calling..."
+            : call.phase === "connecting"
+              ? "Connecting..."
+              : formatCallDuration(callSeconds)}
+        </div>
+
+        {isRecording && (
+          <div
+            style={{
+              marginTop: 14,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "6px 10px",
+              borderRadius: 999,
+              background: "rgba(239,68,68,0.18)",
+              fontSize: 12,
+              fontWeight: 700,
+            }}
+          >
+            <Circle
+              size={9}
+              fill="currentColor"
+              style={{ color: "#ef4444" }}
+            />
+            REC
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          padding:
+            "18px 18px max(26px, env(safe-area-inset-bottom))",
+          background: "rgba(6,16,14,0.78)",
+          backdropFilter: "blur(18px)",
+          borderTop:
+            "1px solid rgba(255,255,255,0.07)",
+        }}
+      >
+        <div
+          style={{
+            width: "min(430px, 100%)",
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(4, minmax(0, 1fr))",
+            gap: 14,
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={isMuted ? "Unmute" : "Mute"}
+              style={controlButtonStyle(isMuted)}
+            >
+              {isMuted ? (
+                <MicOff style={controlIconStyle(true)} />
+              ) : (
+                <Mic />
+              )}
+            </button>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82 }}>
+              {isMuted ? "Unmute" : "Mute"}
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={toggleRecording}
+              aria-label={isRecording ? "Stop recording" : "Record call"}
+              style={controlButtonStyle(isRecording)}
+            >
+              {isRecording ? (
+                <Square
+                  size={19}
+                  fill="currentColor"
+                  style={controlIconStyle(true)}
+                />
+              ) : (
+                <Circle size={23} />
+              )}
+            </button>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82 }}>
+              {isRecording ? "Stop" : "Record"}
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={() => void toggleSpeaker()}
+              aria-label={speakerOn ? "Speaker off" : "Speaker on"}
+              style={controlButtonStyle(speakerOn)}
+            >
+              {speakerOn ? (
+                <Volume2 style={controlIconStyle(true)} />
+              ) : (
+                <VolumeX />
+              )}
+            </button>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82 }}>
+              Speaker
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={onEnd}
+              aria-label="End call"
+              style={controlButtonStyle(false, true)}
+            >
+              <PhoneOff />
+            </button>
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.82 }}>
+              End
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type CallOverlayProps = {
   call: ActiveCall;
   localStream: MediaStream | null;
@@ -297,60 +870,6 @@ type CallOverlayProps = {
   onReject: () => void;
   onEnd: () => void;
 };
-
-type AudioElementWithSink = HTMLAudioElement & {
-  setSinkId?: (sinkId: string) => Promise<void>;
-};
-
-type MediaDevicesWithOutputSelection = MediaDevices & {
-  selectAudioOutput?: () => Promise<MediaDeviceInfo>;
-};
-
-const formatCallDuration = (seconds: number) => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${String(minutes).padStart(2, "0")}:${String(
-    remainingSeconds
-  ).padStart(2, "0")}`;
-};
-
-const getRecordingMimeType = () => {
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-  ];
-
-  return (
-    candidates.find((candidate) =>
-      MediaRecorder.isTypeSupported(candidate)
-    ) || ""
-  );
-};
-
-const blobToBase64 = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onloadend = () => {
-      const result = String(reader.result || "");
-      const base64 = result.includes(",")
-        ? result.split(",")[1]
-        : result;
-
-      resolve(base64);
-    };
-
-    reader.onerror = () => {
-      reject(
-        reader.error ||
-          new Error("Could not prepare call recording")
-      );
-    };
-
-    reader.readAsDataURL(blob);
-  });
 
 function CallOverlay({
   call,
@@ -366,23 +885,6 @@ function CallOverlay({
     useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef =
     useRef<HTMLAudioElement | null>(null);
-
-  const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] =
-    useState(false);
-  const [isRecording, setIsRecording] =
-    useState(false);
-  const [callDurationSeconds, setCallDurationSeconds] =
-    useState(0);
-
-  const mediaRecorderRef =
-    useRef<MediaRecorder | null>(null);
-  const recordingChunksRef = useRef<Blob[]>([]);
-  const recordingAudioContextRef =
-    useRef<AudioContext | null>(null);
-
-  const callIsIncoming = call.phase === "incoming";
-  const isAudioCall = call.callType === "audio";
 
   useEffect(() => {
     if (localVideoRef.current) {
@@ -403,374 +905,10 @@ function CallOverlay({
     }
   }, [remoteStream, call.phase]);
 
-  useEffect(() => {
-    setIsMuted(false);
-    setIsSpeakerOn(false);
-    setIsRecording(false);
-    setCallDurationSeconds(0);
-  }, [call.callId]);
-
-  useEffect(() => {
-    if (call.phase !== "connected") {
-      return;
-    }
-
-    const startedAt = Date.now();
-
-    const updateDuration = () => {
-      setCallDurationSeconds(
-        Math.max(
-          0,
-          Math.floor((Date.now() - startedAt) / 1000)
-        )
-      );
-    };
-
-    updateDuration();
-
-    const timer = window.setInterval(
-      updateDuration,
-      1000
-    );
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [call.callId, call.phase]);
-
-  /*
-   * Android Capacitor only:
-   * audio call starts in communication mode with speaker OFF,
-   * so the handset earpiece is preferred. Video call is untouched.
-   *
-   * Dependency is intentionally based on the incoming/non-incoming
-   * boundary so outgoing -> connecting -> connected does not repeatedly
-   * reset Android audio routing.
-   */
-  useEffect(() => {
-    if (
-      !isAudioCall ||
-      callIsIncoming ||
-      !isNativeAndroidCallAudio()
-    ) {
-      return;
-    }
-
-    let disposed = false;
-
-    void startNativeAudioCall(false).catch((error) => {
-      if (!disposed) {
-        console.error(
-          "[CALL AUDIO] Native call mode start failed:",
-          error
-        );
-      }
-    });
-
-    return () => {
-      disposed = true;
-      void endNativeAudioCall().catch((error) => {
-        console.error(
-          "[CALL AUDIO] Native call mode cleanup failed:",
-          error
-        );
-      });
-    };
-  }, [
-    call.callId,
-    callIsIncoming,
-    isAudioCall,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      const recorder = mediaRecorderRef.current;
-
-      if (
-        recorder &&
-        recorder.state !== "inactive"
-      ) {
-        try {
-          recorder.stop();
-        } catch {
-          // Cleanup only. Call teardown must never be blocked.
-        }
-      }
-
-      const audioContext =
-        recordingAudioContextRef.current;
-
-      if (audioContext) {
-        void audioContext.close().catch(() => undefined);
-      }
-    };
-  }, []);
-
   const displayName =
     call.otherUser.name ||
     call.otherUser.email ||
     "WhatsApp user";
-
-  const toggleMute = () => {
-    if (!localStream) {
-      toast.error("Microphone is not ready");
-      return;
-    }
-
-    const nextMuted = !isMuted;
-
-    localStream.getAudioTracks().forEach((track) => {
-      track.enabled = !nextMuted;
-    });
-
-    setIsMuted(nextMuted);
-  };
-
-  const toggleSpeaker = async () => {
-    const nextSpeakerOn = !isSpeakerOn;
-
-    try {
-      if (isNativeAndroidCallAudio()) {
-        await setNativeCallSpeaker(nextSpeakerOn);
-        setIsSpeakerOn(nextSpeakerOn);
-        return;
-      }
-
-      const audioElement =
-        remoteAudioRef.current as AudioElementWithSink | null;
-
-      if (!audioElement?.setSinkId) {
-        toast(
-          "Browser output routing is controlled by your browser/device"
-        );
-        return;
-      }
-
-      if (!nextSpeakerOn) {
-        await audioElement.setSinkId("");
-        setIsSpeakerOn(false);
-        return;
-      }
-
-      const mediaDevices =
-        navigator.mediaDevices as MediaDevicesWithOutputSelection;
-
-      if (!mediaDevices.selectAudioOutput) {
-        toast(
-          "Choose speaker/output from your browser or system audio settings"
-        );
-        return;
-      }
-
-      const selectedOutput =
-        await mediaDevices.selectAudioOutput();
-
-      await audioElement.setSinkId(
-        selectedOutput.deviceId
-      );
-
-      setIsSpeakerOn(true);
-    } catch (error) {
-      console.error(
-        "[CALL AUDIO] Speaker switch failed:",
-        error
-      );
-      toast.error("Could not switch audio output");
-    }
-  };
-
-  const saveRecordingBlob = async (blob: Blob) => {
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[:.]/g, "-");
-    const fileName = `whatsapp-call-${timestamp}.webm`;
-
-    if (isNativeAndroidCallAudio()) {
-      const base64 = await blobToBase64(blob);
-      const result = await saveNativeCallRecording({
-        base64,
-        fileName,
-        mimeType: blob.type || "audio/webm",
-      });
-
-      toast.success(
-        result.path
-          ? `Recording saved: ${result.path}`
-          : "Call recording saved"
-      );
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = fileName;
-    anchor.style.display = "none";
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    window.setTimeout(() => {
-      URL.revokeObjectURL(objectUrl);
-    }, 1000);
-
-    toast.success("Call recording downloaded");
-  };
-
-  const stopRecording = () => {
-    const recorder = mediaRecorderRef.current;
-
-    if (!recorder || recorder.state === "inactive") {
-      setIsRecording(false);
-      return;
-    }
-
-    recorder.stop();
-  };
-
-  const toggleRecording = async () => {
-    if (isRecording) {
-      stopRecording();
-      return;
-    }
-
-    if (call.phase !== "connected") {
-      toast.error("Wait until the call is connected");
-      return;
-    }
-
-    if (!localStream || !remoteStream) {
-      toast.error("Call audio is not ready yet");
-      return;
-    }
-
-    if (typeof MediaRecorder === "undefined") {
-      toast.error(
-        "Call recording is not supported on this device"
-      );
-      return;
-    }
-
-    try {
-      const AudioContextConstructor =
-        window.AudioContext ||
-        (
-          window as typeof window & {
-            webkitAudioContext?: typeof AudioContext;
-          }
-        ).webkitAudioContext;
-
-      if (!AudioContextConstructor) {
-        throw new Error(
-          "Audio recording is not supported"
-        );
-      }
-
-      const audioContext =
-        new AudioContextConstructor();
-
-      const destination =
-        audioContext.createMediaStreamDestination();
-
-      const localSource =
-        audioContext.createMediaStreamSource(
-          localStream
-        );
-
-      const remoteSource =
-        audioContext.createMediaStreamSource(
-          remoteStream
-        );
-
-      localSource.connect(destination);
-      remoteSource.connect(destination);
-
-      const mimeType = getRecordingMimeType();
-      const recorder = new MediaRecorder(
-        destination.stream,
-        mimeType ? { mimeType } : undefined
-      );
-
-      recordingChunksRef.current = [];
-      recordingAudioContextRef.current =
-        audioContext;
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordingChunksRef.current.push(
-            event.data
-          );
-        }
-      };
-
-      recorder.onerror = (event) => {
-        console.error(
-          "[CALL AUDIO] Recorder error:",
-          event
-        );
-      };
-
-      recorder.onstop = () => {
-        const chunks = recordingChunksRef.current;
-        recordingChunksRef.current = [];
-        mediaRecorderRef.current = null;
-        setIsRecording(false);
-
-        const context =
-          recordingAudioContextRef.current;
-        recordingAudioContextRef.current = null;
-
-        if (context) {
-          void context.close().catch(() => undefined);
-        }
-
-        if (!chunks.length) {
-          return;
-        }
-
-        const recordingBlob = new Blob(chunks, {
-          type:
-            recorder.mimeType ||
-            "audio/webm",
-        });
-
-        void saveRecordingBlob(recordingBlob).catch(
-          (error) => {
-            console.error(
-              "[CALL AUDIO] Recording save failed:",
-              error
-            );
-            toast.error(
-              "Recording finished but could not be saved"
-            );
-          }
-        );
-      };
-
-      recorder.start(1000);
-      setIsRecording(true);
-
-      toast(
-        "Recording started. Make sure everyone on the call knows it is being recorded."
-      );
-    } catch (error) {
-      console.error(
-        "[CALL AUDIO] Recording start failed:",
-        error
-      );
-      toast.error("Could not start call recording");
-    }
-  };
-
-  const handleEndCall = () => {
-    if (isRecording) {
-      stopRecording();
-    }
-
-    onEnd();
-  };
 
   if (call.phase === "incoming") {
     return (
@@ -871,286 +1009,17 @@ function CallOverlay({
     );
   }
 
-  /*
-   * AUDIO CALL UI ONLY.
-   * Existing WebRTC offer/answer/ICE flow is untouched.
-   */
   if (call.callType === "audio") {
-    const callStatus =
-      call.phase === "outgoing"
-        ? "Calling..."
-        : call.phase === "connecting"
-          ? "Connecting..."
-          : formatCallDuration(callDurationSeconds);
-
-    const controlButtonStyle = (
-      active: boolean,
-      danger = false
-    ): React.CSSProperties => ({
-      width: 68,
-      height: 68,
-      borderRadius: "50%",
-      border: active
-        ? "1px solid rgba(255,255,255,0.36)"
-        : "1px solid rgba(255,255,255,0.12)",
-      display: "grid",
-      placeItems: "center",
-      color: "white",
-      background: danger
-        ? "#ef4444"
-        : active
-          ? "rgba(255,255,255,0.22)"
-          : "rgba(255,255,255,0.09)",
-      cursor: "pointer",
-      boxShadow: active
-        ? "0 8px 26px rgba(0,0,0,0.28)"
-        : "none",
-      transition: "all 180ms ease",
-    });
-
     return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          color: "white",
-          background:
-            "radial-gradient(circle at 50% 22%, #244d47 0%, #102b28 35%, #07110f 72%)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.03), transparent 34%, rgba(0,0,0,0.34))",
-          }}
-        />
-
-        <div
-          style={{
-            position: "relative",
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "72px 24px 32px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 132,
-              height: 132,
-              borderRadius: "50%",
-              padding: 4,
-              background:
-                "rgba(255,255,255,0.08)",
-              boxShadow:
-                "0 18px 55px rgba(0,0,0,0.35)",
-            }}
-          >
-            <Avatar
-              src={call.otherUser.profilePhoto}
-              name={displayName}
-            />
-          </div>
-
-          <h1
-            style={{
-              margin: "24px 0 8px",
-              fontSize: "clamp(26px, 6vw, 36px)",
-              fontWeight: 500,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            {displayName}
-          </h1>
-
-          <div
-            style={{
-              minHeight: 24,
-              fontSize: 15,
-              color: "rgba(255,255,255,0.72)",
-            }}
-          >
-            {isRecording && (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 7,
-                  marginRight: 12,
-                  color: "#ff8b8b",
-                  fontWeight: 700,
-                }}
-              >
-                <Circle
-                  size={10}
-                  fill="currentColor"
-                />
-                REC
-              </span>
-            )}
-            {callStatus}
-          </div>
-
-          <audio
-            ref={remoteAudioRef}
-            autoPlay
-            playsInline
-          />
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            padding:
-              "22px 18px calc(28px + env(safe-area-inset-bottom))",
-            background:
-              "rgba(7,17,15,0.72)",
-            borderTop:
-              "1px solid rgba(255,255,255,0.06)",
-            backdropFilter: "blur(18px)",
-          }}
-        >
-          <div
-            style={{
-              width: "min(470px, 100%)",
-              margin: "0 auto",
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(4, minmax(0, 1fr))",
-              gap: 12,
-              alignItems: "start",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <button
-                type="button"
-                onClick={toggleMute}
-                aria-label={
-                  isMuted
-                    ? "Unmute microphone"
-                    : "Mute microphone"
-                }
-                style={controlButtonStyle(isMuted)}
-              >
-                {isMuted ? (
-                  <MicOff size={27} />
-                ) : (
-                  <Mic size={27} />
-                )}
-              </button>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.82)",
-                }}
-              >
-                {isMuted ? "Unmute" : "Mute"}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  void toggleSpeaker();
-                }}
-                aria-label="Toggle speaker"
-                style={controlButtonStyle(
-                  isSpeakerOn
-                )}
-              >
-                <Volume2 size={28} />
-              </button>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.82)",
-                }}
-              >
-                Speaker
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  void toggleRecording();
-                }}
-                aria-label={
-                  isRecording
-                    ? "Stop call recording"
-                    : "Start call recording"
-                }
-                style={controlButtonStyle(
-                  isRecording
-                )}
-              >
-                {isRecording ? (
-                  <Square
-                    size={24}
-                    fill="currentColor"
-                  />
-                ) : (
-                  <Circle size={28} />
-                )}
-              </button>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  color: isRecording
-                    ? "#ff8b8b"
-                    : "rgba(255,255,255,0.82)",
-                }}
-              >
-                {isRecording ? "Stop" : "Record"}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "center" }}>
-              <button
-                type="button"
-                onClick={handleEndCall}
-                aria-label="End call"
-                style={controlButtonStyle(
-                  false,
-                  true
-                )}
-              >
-                <PhoneOff size={28} />
-              </button>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 12,
-                  color: "rgba(255,255,255,0.82)",
-                }}
-              >
-                End
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AudioCallOverlay
+        call={call}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        onEnd={onEnd}
+      />
     );
   }
 
-  /*
-   * VIDEO CALL FLOW / UI BELOW IS KEPT THE SAME.
-   */
   return (
     <div
       style={{
@@ -1174,24 +1043,42 @@ function CallOverlay({
             "radial-gradient(circle at center, #14332f, #07110f 65%)",
         }}
       >
-        {remoteStream ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
+        {call.callType === "video" ? (
+          remoteStream ? (
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  width: 110,
+                  height: 110,
+                  margin: "0 auto 16px",
+                }}
+              >
+                <Avatar
+                  src={call.otherUser.profilePhoto}
+                  name={displayName}
+                />
+              </div>
+              <h2>{displayName}</h2>
+            </div>
+          )
         ) : (
           <div style={{ textAlign: "center" }}>
             <div
               style={{
-                width: 110,
-                height: 110,
-                margin: "0 auto 16px",
+                width: 120,
+                height: 120,
+                margin: "0 auto 18px",
               }}
             >
               <Avatar
@@ -1200,6 +1087,10 @@ function CallOverlay({
               />
             </div>
             <h2>{displayName}</h2>
+            <audio
+              ref={remoteAudioRef}
+              autoPlay
+            />
           </div>
         )}
 
@@ -1229,26 +1120,27 @@ function CallOverlay({
           </div>
         </div>
 
-        {localStream && (
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{
-              position: "absolute",
-              right: 18,
-              bottom: 18,
-              width: "min(28vw, 220px)",
-              aspectRatio: "3 / 4",
-              objectFit: "cover",
-              borderRadius: 16,
-              background: "black",
-              boxShadow:
-                "0 8px 28px rgba(0,0,0,0.4)",
-            }}
-          />
-        )}
+        {call.callType === "video" &&
+          localStream && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                position: "absolute",
+                right: 18,
+                bottom: 18,
+                width: "min(28vw, 220px)",
+                aspectRatio: "3 / 4",
+                objectFit: "cover",
+                borderRadius: 16,
+                background: "black",
+                boxShadow:
+                  "0 8px 28px rgba(0,0,0,0.4)",
+              }}
+            />
+          )}
       </div>
 
       <div
